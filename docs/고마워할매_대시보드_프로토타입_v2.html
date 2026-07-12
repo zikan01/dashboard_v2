@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>고마워할매 예약 운영 대시보드 (프로토타입 v2)</title>
+<style>
+  :root{
+    --bg:#F4F0E8; --panel:#FFFFFF; --cream:#FCFAF5;
+    --green-900:#1F5C43; --green-700:#2E7D5B; --green-100:#E4EFE7;
+    --amber-100:#F3E7CE; --amber-700:#A97B34;
+    --gray-100:#ECE8E0; --gray-600:#8A8577;
+    --text:#2B2A26; --muted:#8A8577; --border:#E7E2D6;
+    --shadow:0 1px 2px rgba(0,0,0,.04);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+    background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .app{display:flex;min-height:100vh}
+
+  /* Sidebar */
+  .sidebar{width:230px;background:var(--panel);border-right:1px solid var(--border);
+    display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+  .brand{display:flex;align-items:center;gap:10px;padding:20px 18px}
+  .logo{width:34px;height:34px;border-radius:9px;background:var(--green-900);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px}
+  .brand b{font-size:15px}.brand span{font-size:11px;color:var(--muted);display:block}
+  .nav{padding:4px 12px;display:flex;flex-direction:column;gap:2px;flex:1}
+  .nav a{display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:9px;
+    color:#55514a;text-decoration:none;font-size:13.5px;cursor:pointer;transition:.12s}
+  .nav a:hover{background:#f5f2ea}
+  .nav a.active{background:var(--green-100);color:var(--green-900);font-weight:600}
+  .nav a .ic{width:17px;text-align:center;opacity:.8}
+  .nav .tag{font-size:10px;background:var(--green-100);color:var(--green-700);padding:1px 6px;border-radius:20px;margin-left:auto}
+  .navsec{font-size:10.5px;color:#b3ac9c;padding:12px 14px 4px;letter-spacing:.04em}
+  .userbox{display:flex;align-items:center;gap:10px;padding:14px 16px;border-top:1px solid var(--border)}
+  .avatar{width:30px;height:30px;border-radius:50%;background:var(--green-100);color:var(--green-900);
+    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px}
+
+  /* Main */
+  .main{flex:1;min-width:0}
+  .topbar{display:flex;align-items:flex-start;justify-content:space-between;padding:26px 34px 10px}
+  .topbar h1{font-size:22px;font-weight:700}
+  .topbar .date{color:var(--muted);font-size:12.5px;margin-top:3px}
+  .btn{background:var(--green-700);color:#fff;border:none;padding:9px 15px;border-radius:9px;
+    font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:7px}
+  .btn:hover{background:#276a4d}
+  .btn.ghost{background:#fff;color:#4a463e;border:1px solid var(--border)}
+  .content{padding:14px 34px 40px}
+
+  /* KPI */
+  .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-bottom:22px}
+  .kpi{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:18px 18px 16px;box-shadow:var(--shadow)}
+  .kpi .lab{font-size:12px;color:var(--muted);margin-bottom:10px}
+  .kpi .val{font-size:26px;font-weight:700;letter-spacing:-.01em}
+  .kpi .sub{font-size:11px;color:#b3ac9c;margin-top:6px}
+
+  .grid2{display:grid;grid-template-columns:1.55fr 1fr;gap:20px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px 22px;box-shadow:var(--shadow)}
+  .card h3{font-size:14.5px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+  .card .cap{font-size:11.5px;color:var(--muted);margin-bottom:14px}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--green-700);display:inline-block}
+
+  .rowitem{display:flex;align-items:center;gap:14px;padding:12px 4px;border-bottom:1px solid #f0ece2}
+  .rowitem:last-child{border-bottom:none}
+  .rowitem .nm{font-weight:600;min-width:56px}
+  .rowitem .meta{color:var(--muted);font-size:12.5px}
+  .rowitem .right{margin-left:auto;display:flex;align-items:center;gap:14px}
+  .amt{font-weight:700}
+
+  .badge{font-size:11px;padding:3px 9px;border-radius:20px;font-weight:600;white-space:nowrap}
+  .b-green{background:var(--green-100);color:var(--green-700)}
+  .b-amber{background:var(--amber-100);color:var(--amber-700)}
+  .b-gray{background:var(--gray-100);color:#8b8578}
+
+  .upcoming .u{display:flex;align-items:center;gap:12px;padding:11px 2px;border-bottom:1px solid #f0ece2}
+  .upcoming .u:last-child{border-bottom:none}
+  .dcode{color:var(--green-700);font-weight:700;min-width:34px;font-size:12.5px}
+
+  .alerts .al{border-left:3px solid var(--green-700);padding:8px 12px;margin-bottom:11px;background:var(--cream);border-radius:0 8px 8px 0}
+  .alerts .al.amber{border-color:#d8a54a}
+  .alerts .al .t{font-weight:600;font-size:12.5px}
+  .alerts .al .t .dd{color:#c0392b;font-weight:700;margin-right:6px;font-size:11.5px}
+  .alerts .al .s{color:var(--muted);font-size:11.5px;margin-top:2px}
+
+  /* Table */
+  table{width:100%;border-collapse:collapse}
+  thead th{text-align:left;font-size:11.5px;color:var(--muted);font-weight:600;padding:12px 10px;border-bottom:1px solid var(--border);background:#faf7f0}
+  tbody td{padding:13px 10px;border-bottom:1px solid #f2eee5;font-size:13px;vertical-align:middle}
+  tbody tr:hover{background:#faf8f2;cursor:pointer}
+  .mono{font-variant-numeric:tabular-nums;color:#6f6a5f;font-size:12px}
+  .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
+  .chip{font-size:12.5px;padding:7px 13px;border-radius:9px;border:1px solid var(--border);background:#fff;color:#55514a;cursor:pointer}
+  .chip.on{background:var(--green-700);color:#fff;border-color:var(--green-700)}
+  .search{margin-left:auto;padding:8px 13px;border:1px solid var(--border);border-radius:9px;font-size:12.5px;width:230px;background:#fff}
+  .thint{color:var(--muted);font-size:11.5px;margin-top:12px}
+
+  /* Calendar */
+  .cal{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px;box-shadow:var(--shadow)}
+  .cal-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+  .cal-h b{font-size:16px}
+  .legend{display:flex;gap:14px;font-size:11.5px;color:var(--muted)}
+  .legend i{width:9px;height:9px;border-radius:3px;display:inline-block;margin-right:4px;vertical-align:middle}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+  .cal-grid .wd{text-align:center;color:var(--muted);font-size:11.5px;padding:4px 0}
+  .cell{min-height:96px;border:1px solid #efeae0;border-radius:10px;padding:8px;background:var(--cream)}
+  .cell.empty{background:transparent;border:none}
+  .cell.today{border-color:var(--green-700);box-shadow:0 0 0 1px var(--green-700) inset}
+  .cell .d{font-size:12px;color:#8b8578;margin-bottom:6px}
+  .ev{font-size:11px;padding:3px 6px;border-radius:6px;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ev.g{background:var(--green-100);color:var(--green-900)}
+  .ev.a{background:var(--amber-100);color:var(--amber-700)}
+  .ev.c{background:var(--gray-100);color:#9b958a;text-decoration:line-through}
+
+  /* Detail */
+  .detail{display:grid;grid-template-columns:1.3fr 1fr;gap:20px}
+  .kv{display:grid;grid-template-columns:1fr 1fr;gap:16px 20px;margin-top:6px}
+  .kv .k{font-size:11.5px;color:var(--muted)}
+  .kv .v{font-size:14px;font-weight:600;margin-top:2px}
+  .sel{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:#fff;font-size:13px;margin-top:6px}
+  .memo{width:100%;min-height:80px;padding:11px;border:1px solid var(--border);border-radius:9px;font-size:13px;font-family:inherit;resize:vertical}
+  .hist{display:flex;gap:9px;padding:9px 0;border-bottom:1px solid #f2eee5}
+  .hist .hd{width:6px;height:6px;border-radius:50%;background:var(--green-700);margin-top:6px}
+  .back{color:var(--muted);font-size:13px;cursor:pointer;margin-bottom:14px;display:inline-block}
+
+  /* Upload / preview */
+  .drop{border:2px dashed #d8d2c4;border-radius:14px;padding:44px;text-align:center;background:var(--cream);margin-bottom:22px}
+  .drop .up{width:46px;height:46px;border-radius:12px;background:var(--green-100);color:var(--green-700);
+    display:flex;align-items:center;justify-content:center;font-size:22px;margin:0 auto 12px}
+  .prev{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin:16px 0}
+  .prev .p{border:1px solid var(--border);border-radius:11px;padding:14px;text-align:center;background:#fff}
+  .prev .p .n{font-size:24px;font-weight:700}.prev .p .l{font-size:11px;color:var(--muted);margin-bottom:4px}
+
+  .staff-note{color:var(--muted);font-size:12.5px;margin-bottom:16px}
+  .rolebadge{font-size:10px;padding:2px 8px;border-radius:20px;background:var(--green-100);color:var(--green-700);font-weight:600}
+  .rolebadge.staff{background:#eceae3;color:#7d786c}
+  .inqbox{border:1px solid var(--border);border-radius:11px;padding:16px;background:#fff;margin-bottom:14px}
+  .parsed{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+  .parsed .pf{background:var(--cream);border:1px solid #efeae0;border-radius:8px;padding:8px 10px}
+  .parsed .pf .k{font-size:10.5px;color:var(--muted)}.parsed .pf .v{font-weight:600;font-size:13px}
+  .colgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0}
+  .colgrid label{display:flex;gap:7px;align-items:center;font-size:12.5px;background:#fff;border:1px solid var(--border);padding:8px 10px;border-radius:8px}
+  .v2tag{font-size:10px;background:#eaf3 ;color:var(--green-700);border:1px solid var(--green-100);padding:1px 6px;border-radius:20px;margin-left:6px;font-weight:600}
+  .banner{background:#eaf3ec;border:1px solid var(--green-100);color:#2c5c46;border-radius:10px;padding:11px 14px;font-size:12.5px;margin-bottom:18px}
+  @media(max-width:1080px){.kpis{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}.detail{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><div class="logo">고</div><div><b>고마워할매</b><span>예약 운영</span></div></div>
+    <nav class="nav" id="nav">
+      <a data-v="home" class="active"><span class="ic">▦</span>대시보드</a>
+      <a data-v="list"><span class="ic">☰</span>예약 목록</a>
+      <a data-v="cal"><span class="ic">▤</span>예약 캘린더</a>
+      <div class="navsec">관리자</div>
+      <a data-v="upload"><span class="ic">↑</span>엑셀 업로드</a>
+      <a data-v="inquiry"><span class="ic">✎</span>텍스트 문의<span class="tag">NEW</span></a>
+      <a data-v="export"><span class="ic">⤓</span>데이터 내보내기<span class="tag">NEW</span></a>
+      <a data-v="history"><span class="ic">◷</span>업로드 이력</a>
+      <a data-v="staff"><span class="ic">👤</span>직원 관리</a>
+    </nav>
+    <div class="userbox"><div class="avatar">김</div><div><b style="font-size:13px">김대표</b><div style="font-size:11px;color:var(--muted)">대표 · 관리자</div></div></div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div><h1 id="ttl">대시보드</h1><div class="date">2026년 7월 7일 (화)</div></div>
+      <button class="btn">↑ 예약 데이터 가져오기</button>
+    </div>
+    <div class="content" id="view"></div>
+  </main>
+</div>
+
+<script>
+// ---- Mock data (7장 이미지와 동일) ----
+const R = [
+  {no:"25070502",dp:"GMW-260705-001",date:"7/5",dow:"일",nm:"임채원",pax:4,opt:["바베큐"],amt:120000,st:"확정",src:"엑셀",ph:"010-4478-9021",ch:"네이버 지도"},
+  {no:"25070701",dp:"GMW-260707-001",date:"7/7",dow:"화",nm:"최민서",pax:6,opt:["바베큐"],amt:180000,st:"확정",src:"엑셀",ph:"010-2211-5567",ch:"네이버 플레이스"},
+  {no:"25070702",dp:"GMW-260707-002",date:"7/7",dow:"화",nm:"정하늘",pax:15,opt:["숙박","계곡"],amt:620000,st:"확정",src:"엑셀",ph:"010-9080-1290",ch:"네이버 플레이스"},
+  {no:"25070801",dp:"GMW-260708-001",date:"7/8",dow:"수",nm:"김영수",pax:12,opt:["숙박","바베큐"],amt:480000,st:"확정",src:"엑셀",ph:"010-3321-6789",ch:"네이버 플레이스"},
+  {no:"25070901",dp:"GMW-260709-001",date:"7/9",dow:"목",nm:"박지현",pax:8,opt:["계곡","바베큐"],amt:320000,st:"확정",src:"엑셀",ph:"010-7754-4471",ch:"네이버 지도"},
+  {no:"25071001",dp:"GMW-260710-001",date:"7/10",dow:"금",nm:"이준호",pax:20,opt:["숙박","바베큐","버스왕복"],amt:950000,st:"확정",src:"엑셀",ph:"010-8890-7788",ch:"네이버 플레이스"},
+  {no:"25071201",dp:"GMW-260712-001",date:"7/12",dow:"일",nm:"강도윤",pax:10,opt:["매실"],amt:150000,st:"확정",src:"엑셀",ph:"010-1122-8823",ch:"네이버 플레이스"},
+  {no:"25071401",dp:"GMW-260714-001",date:"7/14",dow:"화",nm:"윤서연",pax:25,opt:["숙박","바베큐","계곡"],amt:1100000,st:"변경",src:"엑셀",ph:"010-5567-3311",ch:"네이버 플레이스"},
+  {no:"25071801",dp:"GMW-260718-001",date:"7/18",dow:"토",nm:"한지우",pax:30,opt:["숙박","버스왕복","바베큐"],amt:1350000,st:"확정",src:"엑셀",ph:"010-3345-4409",ch:"네이버 플레이스"},
+  {no:"25072007",dp:"GMW-260720-001",date:"7/20",dow:"월",nm:"오세훈",pax:8,opt:["계곡"],amt:200000,st:"취소",src:"엑셀",ph:"010-9902-1177",ch:"네이버 지도"},
+  {no:"25072201",dp:"GMW-260722-001",date:"7/22",dow:"수",nm:"신아름",pax:12,opt:["숙박"],amt:400000,st:"확정",src:"엑셀",ph:"010-4433-6634",ch:"네이버 플레이스"},
+  {no:"25072518",dp:"GMW-260725-001",date:"7/25",dow:"토",nm:"배준영",pax:18,opt:["바베큐","계곡"],amt:540000,st:"변경",src:"엑셀",ph:"010-7788-2290",ch:"네이버 플레이스"},
+  {no:"25072803",dp:"GMW-260728-001",date:"7/28",dow:"화",nm:"조은지",pax:6,opt:["매실","바베큐"],amt:260000,st:"확정",src:"텍스트문의",ph:"010-2231-9982",ch:"전화"},
+  {no:"25073066",dp:"GMW-260730-001",date:"7/30",dow:"목",nm:"문태양",pax:22,opt:["숙박","바베큐","버스왕복"],amt:1050000,st:"확정",src:"엑셀",ph:"010-6654-3345",ch:"네이버 플레이스"},
+];
+const won = n => "₩"+n.toLocaleString();
+const mask = p => p.replace(/(\d{3})-(\d{4})-(\d{4})/,"$1-****-$3");
+const badge = s => s==="확정"?'<span class="badge b-green">확정</span>':s==="변경"?'<span class="badge b-amber">변경</span>':'<span class="badge b-gray">취소</span>';
+const active = R.filter(r=>r.st!=="취소");
+const KPI = {
+  cnt: active.length,
+  pax: active.reduce((a,r)=>a+r.pax,0),
+  rev: active.reduce((a,r)=>a+r.amt,0),
+  up: active.filter(r=>+r.date.split("/")[1]>7).length,
+  exc: R.filter(r=>r.st!=="확정").length
+};
+const PREP = {바베큐:"고기, 숯, 집게, 장갑, 채소, 일회용 식기",계곡:"물놀이 안내, 안전용품, 수건, 구급용품",버스왕복:"차량 배차 확인, 탑승 인원 확인, 기사 연락",매실:"매실, 설탕, 용기, 장갑",숙박:"침구, 객실 정리, 수건, 비품"};
+
+// ---- Views ----
+function home(){
+  const today = R.filter(r=>r.date==="7/7");
+  const upcoming = active.filter(r=>+r.date.split("/")[1]>7).slice(0,5);
+  const dmap={"7/8":"D-1","7/9":"D-2","7/10":"D-3","7/12":"D-5","7/14":"D-7"};
+  return `
+  <div class="kpis">
+    <div class="kpi"><div class="lab">이번 달 예약</div><div class="val">${KPI.cnt}건</div><div class="sub">취소 제외 (확정+변경)</div></div>
+    <div class="kpi"><div class="lab">총 방문 인원</div><div class="val">${KPI.pax}명</div><div class="sub">취소 제외 기준</div></div>
+    <div class="kpi"><div class="lab">예상 매출</div><div class="val">${won(KPI.rev)}</div><div class="sub">취소 제외 결제금액 합계</div></div>
+    <div class="kpi"><div class="lab">다가오는 예약</div><div class="val">${KPI.up}건</div><div class="sub">오늘 이후 방문</div></div>
+    <div class="kpi"><div class="lab">취소·변경 예약</div><div class="val">${KPI.exc}건</div><div class="sub">확인이 필요해요</div></div>
+  </div>
+  <div class="grid2">
+    <div>
+      <div class="card" style="margin-bottom:20px">
+        <h3><span class="dot"></span>오늘 방문 예약</h3><div class="cap"></div>
+        ${today.map(r=>`<div class="rowitem"><div class="nm">${r.nm}</div><div class="meta">${r.pax}명</div><div class="meta">${r.opt.join(" · ")}</div>
+          <div class="right"><span class="mono">${mask(r.ph)}</span><span class="amt">${won(r.amt)}</span>${badge(r.st)}</div></div>`).join("")}
+      </div>
+      <div class="card">
+        <h3>다가오는 예약</h3><div class="cap"></div>
+        ${upcoming.map(r=>`<div class="rowitem"><div class="dcode">${dmap[r.date]||""}</div><div class="meta" style="min-width:96px">${r.date} (${r.dow})</div>
+          <div class="nm">${r.nm}</div><div class="meta">${r.pax}명</div><div class="meta">${r.opt.join(" · ")}</div><div class="right">${badge(r.st)}</div></div>`).join("")}
+      </div>
+    </div>
+    <div class="card alerts">
+      <h3>준비 알림</h3><div class="cap">방문일 기준 확인이 필요한 예약이에요.</div>
+      ${today.map(r=>`<div class="al"><div class="t"><span class="dd">D-DAY</span>오늘 방문 예약</div><div class="s">${r.nm} · ${r.pax}명 · 7월 7일 (화) · ${r.opt.join(" · ")}</div></div>`).join("")}
+      <div class="al"><div class="t"><span class="dd">D-1</span>최종 인원·옵션 확인</div><div class="s">김영수 · 12명 · 7월 8일 (수) · 숙박 · 바베큐</div></div>
+      <div class="al"><div class="t"><span class="dd">D-3</span>고객 안내 필요</div><div class="s">이준호 · 20명 · 7월 10일 (금)</div></div>
+      <div class="al amber"><div class="t"><span class="dd">D-5</span>준비물 확인</div><div class="s">강도윤 · 10명 · 7월 12일 (일) · 매실</div></div>
+      <div class="al amber"><div class="t"><span class="dd">D-7</span>예약 내용 확인</div><div class="s">윤서연 · 25명 · 7월 14일 (화) · 변경</div></div>
+    </div>
+  </div>`;
+}
+
+function list(){
+  return `
+  <div class="filters">
+    <span class="chip on">전체</span><span class="chip">확정</span><span class="chip">변경</span><span class="chip">취소</span>
+    <span style="width:14px"></span>
+    <span class="chip on">정산 전체</span><span class="chip">확인 필요</span><span class="chip">확인 완료</span>
+    <input class="search" placeholder="예약자명 · 연락처 · 표시번호 검색">
+  </div>
+  <div class="card" style="padding:6px 14px">
+  <table>
+    <thead><tr><th>방문일</th><th>표시번호</th><th>예약자</th><th>연락처</th><th>인원</th><th>옵션</th><th style="text-align:right">결제금액</th><th>출처</th><th>상태</th><th>정산</th><th>세금계산서</th></tr></thead>
+    <tbody>
+    ${R.map((r,i)=>`<tr onclick="go('detail',${i})"><td>${r.date} (${r.dow})</td><td class="mono">${r.dp}</td><td><b>${r.nm}</b></td>
+      <td class="mono">${mask(r.ph)}</td><td>${r.pax}명</td><td>${r.opt.join(", ")}</td><td style="text-align:right"><b>${won(r.amt)}</b></td>
+      <td><span class="mono">${r.src}</span></td><td>${badge(r.st)}</td>
+      <td>${r.st==="취소"?'<span class="badge b-gray">해당 없음</span>':'<span class="badge b-amber">별도 확인 필요</span>'}</td>
+      <td>${r.st==="취소"?'<span class="badge b-gray">해당 없음</span>':'<span class="badge b-amber">별도 확인 필요</span>'}</td></tr>`).join("")}
+    </tbody>
+  </table>
+  </div>
+  <div class="thint">총 ${R.length}건 · 목록 연락처는 개인정보 보호를 위해 마스킹됩니다. 행을 클릭하면 상세로 이동합니다.</div>`;
+}
+
+function detail(i){
+  const r=R[i]||R[0];
+  return `
+  <span class="back" onclick="go('list')">‹ 예약 목록으로</span>
+  <div class="detail">
+    <div>
+      <div class="card" style="margin-bottom:20px">
+        <h3 style="font-size:19px">${r.nm} ${badge(r.st)}</h3>
+        <div class="kv">
+          <div><div class="k">표시번호 (자체 PK)</div><div class="v mono" style="color:var(--green-700)">${r.dp}</div></div>
+          <div><div class="k">네이버 예약번호</div><div class="v mono">${r.src==="텍스트문의"?"— (텍스트 문의)":r.no}</div></div>
+          <div><div class="k">연락처</div><div class="v">${r.ph}</div></div>
+          <div><div class="k">방문일</div><div class="v">${r.date} (${r.dow})</div></div>
+          <div><div class="k">방문 인원</div><div class="v">${r.pax}명</div></div>
+          <div><div class="k">결제금액</div><div class="v">${won(r.amt)}</div></div>
+          <div><div class="k">출처 · 유입경로</div><div class="v">${r.src} · ${r.ch}</div></div>
+          <div><div class="k">옵션</div><div class="v">${r.opt.join(", ")}</div></div>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:20px">
+        <h3>준비물 예시</h3><div class="cap">* 수량 계산은 제공하지 않으며 예시로만 안내됩니다.</div>
+        ${r.opt.map(o=>`<div class="rowitem"><div style="min-width:70px;font-weight:600;color:var(--green-700)">${o}</div><div class="meta">${PREP[o]||""}</div></div>`).join("")}
+      </div>
+      <div class="card">
+        <h3>메모</h3>
+        <textarea class="memo" placeholder="메모를 입력하세요">${r.nm=="임채원"?"단체 손님, 도착 30분 전 연락 요청. 아이 동반 2명.":""}</textarea>
+        <div class="thint">✓ v2 수정: 메모는 문자열 텍스트로 저장·표시 (기존 [object Object] 버그 해소)</div>
+      </div>
+    </div>
+    <div>
+      <div class="card" style="margin-bottom:20px">
+        <h3>정산 · 세금계산서</h3><div class="cap">상태를 눌러 직접 변경할 수 있어요. (직원도 수정 가능)</div>
+        <div class="k" style="font-size:11.5px;color:var(--muted)">정산 상태</div>
+        <select class="sel"><option>별도 확인 필요</option><option>확인 완료</option><option>해당 없음</option></select>
+        <div class="k" style="font-size:11.5px;color:var(--muted);margin-top:14px">세금계산서 상태</div>
+        <select class="sel"><option>별도 확인 필요</option><option>발행 완료</option><option>해당 없음</option></select>
+        <div class="banner" style="margin:16px 0 0">이 필드는 Supabase가 원본입니다. 엑셀 재업로드로 덮어쓰지 않습니다.</div>
+      </div>
+      <div class="card">
+        <h3>수정 이력</h3>
+        <div class="hist"><div class="hd"></div><div><div style="font-weight:600;font-size:12.5px">정산 상태 → 확인 완료</div><div class="meta" style="font-size:11.5px">김대표 · 07-06 18:24</div></div></div>
+        <div class="hist"><div class="hd"></div><div><div style="font-weight:600;font-size:12.5px">메모 추가</div><div class="meta" style="font-size:11.5px">이직원 · 07-05 11:02</div></div></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function cal(){
+  const ev={5:[["임채원 4명","g"]],7:[["최민서 6명","g"],["정하늘 15명","g"]],8:[["김영수 12명","g"]],9:[["박지현 8명","g"]],
+    10:[["이준호 20명","g"]],12:[["강도윤 10명","g"]],14:[["윤서연 25명","a"]],18:[["한지우 30명","g"]],
+    20:[["오세훈 8명","c"]],22:[["신아름 12명","g"]],25:[["배준영 18명","a"]],28:[["조은지 6명","g"]],30:[["문태양 22명","g"]]};
+  const wd=["일","월","화","수","목","금","토"];
+  let cells="";
+  for(let i=0;i<3;i++)cells+='<div class="cell empty"></div>'; // 7/1 = Wed → 3 empties
+  for(let d=1;d<=31;d++){
+    const evs=(ev[d]||[]).map(e=>`<div class="ev ${e[1]}">${e[0]}</div>`).join("");
+    cells+=`<div class="cell ${d===7?'today':''}"><div class="d">${d}</div>${evs}</div>`;
+  }
+  return `<div class="cal">
+    <div class="cal-h"><b>2026년 7월</b><div class="legend"><span><i style="background:var(--green-100)"></i>확정</span><span><i style="background:var(--amber-100)"></i>변경</span><span><i style="background:var(--gray-100)"></i>취소</span></div></div>
+    <div class="cal-grid">${wd.map(w=>`<div class="wd">${w}</div>`).join("")}${cells}</div>
+  </div>`;
+}
+
+function upload(){
+  return `
+  <div class="drop"><div class="up">↑</div><div style="font-weight:600;font-size:15px">네이버 예약 상세 엑셀 파일을 올려주세요</div>
+    <div class="meta" style="margin:6px 0 16px">파일을 끌어다 놓거나 아래 버튼으로 선택하세요 · .xlsx, .xls</div>
+    <button class="btn">파일 선택</button> <button class="btn ghost" style="margin-left:8px">로컬 수집기로 가져오기</button></div>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <h3>업로드 미리보기</h3><div><button class="btn ghost">마지막 업로드 되돌리기</button> <button class="btn" style="margin-left:6px">반영하기</button></div></div>
+    <div class="cap">reservation_2026-07.xlsx · 반영 전 검토</div>
+    <div class="prev">
+      <div class="p"><div class="l">전체 예약</div><div class="n">12</div></div>
+      <div class="p"><div class="l">신규</div><div class="n">4</div></div>
+      <div class="p"><div class="l">업데이트</div><div class="n">6</div></div>
+      <div class="p"><div class="l">변경</div><div class="n">1</div></div>
+      <div class="p"><div class="l">취소</div><div class="n">1</div></div>
+      <div class="p"><div class="l" style="color:var(--green-700)">병합 후보<span class="v2tag">NEW</span></div><div class="n">1</div></div>
+    </div>
+    <table><thead><tr><th>표시번호</th><th>예약자</th><th>처리</th><th>내용</th></tr></thead><tbody>
+      <tr><td class="mono">GMW-260730-001</td><td><b>문태양</b></td><td><span class="badge b-green">신규</span></td><td>숙박, 바베큐, 버스왕복 · 22명</td></tr>
+      <tr><td class="mono">GMW-260728-001</td><td><b>조은지</b></td><td><span class="badge b-amber">병합</span></td><td>텍스트 문의 → 네이버 예약 연결 (이름+연락처+방문일 일치)</td></tr>
+      <tr><td class="mono">GMW-260718-001</td><td><b>한지우</b></td><td><span class="badge b-green">업데이트</span></td><td>인원 28 → 30 변경</td></tr>
+      <tr><td class="mono">GMW-260725-001</td><td><b>배준영</b></td><td><span class="badge b-amber">변경</span></td><td>날짜 07-24 → 07-25</td></tr>
+      <tr><td class="mono">GMW-260720-001</td><td><b>오세훈</b></td><td><span class="badge b-gray">취소</span></td><td>취소 상태로 반영</td></tr>
+    </tbody></table>
+    <div class="thint">* 같은 예약은 새로 만들지 않고 업데이트/병합되며, 정산·세금계산서·메모는 덮어쓰지 않습니다. 반영 시 로컬 엑셀 저장 + 대시보드 갱신이 동시에 진행됩니다.</div>
+  </div>`;
+}
+
+function inquiry(){
+  return `
+  <div class="banner">NEW · 전화·문자·카톡으로 온 자유 텍스트 예약 문의를 입력해 정리하고, 확인 후 정식 예약으로 승격합니다. (v1은 수동 정리, AI 자동 파싱은 v2)</div>
+  <div class="card" style="margin-bottom:20px">
+    <h3>새 문의 입력</h3>
+    <textarea class="memo" style="min-height:70px" placeholder="예: 다음주 토요일 열명 정도 계곡이랑 바베큐 가능할까요? 김하영 010-3345-2211">다음주 토요일 10명 정도 계곡+바베큐 예약 가능한가요? 김하영입니다 010-3345-2211</textarea>
+    <div style="margin-top:10px"><button class="btn">문의 저장 (대기)</button></div>
+  </div>
+  <div class="card">
+    <h3>대기 중인 문의</h3><div class="cap">관리자가 확인·수정 후 예약으로 승격합니다.</div>
+    <div class="inqbox">
+      <div style="display:flex;justify-content:space-between;align-items:center"><b>김하영</b><span class="badge b-amber">대기</span></div>
+      <div class="meta" style="margin-top:6px">원문: "다음주 토요일 10명 정도 계곡+바베큐 예약 가능한가요? 김하영입니다 010-3345-2211"</div>
+      <div class="parsed">
+        <div class="pf"><div class="k">방문일</div><div class="v">7월 18일 (토)</div></div>
+        <div class="pf"><div class="k">인원</div><div class="v">10명</div></div>
+        <div class="pf"><div class="k">옵션</div><div class="v">계곡, 바베큐</div></div>
+        <div class="pf"><div class="k">예약자</div><div class="v">김하영</div></div>
+        <div class="pf"><div class="k">연락처</div><div class="v">010-3345-2211</div></div>
+        <div class="pf"><div class="k">병합 후보</div><div class="v">없음</div></div>
+      </div>
+      <div style="margin-top:12px"><button class="btn">예약으로 승격</button> <button class="btn ghost" style="margin-left:6px">반려</button></div>
+    </div>
+  </div>`;
+}
+
+function exportv(){
+  const cols=["표시번호","방문일","예약자","연락처","인원","옵션","결제금액","예약상태","정산상태","세금계산서"];
+  return `
+  <div class="banner">NEW · 원하는 필드만 골라 엑셀로 내보내면서, 같은 데이터가 대시보드에도 동시에 반영됩니다. 파일은 날짜·시각별 새 파일로 로컬에 저장됩니다.</div>
+  <div class="card">
+    <h3>내보낼 필드 선택 (내보내기 프로필)</h3>
+    <div class="colgrid">
+      ${cols.map((c,i)=>`<label><input type="checkbox" ${i<8?'checked':''}> ${c}</label>`).join("")}
+    </div>
+    <div class="filters" style="margin-top:8px"><span class="chip on">이번 달</span><span class="chip">다음 달</span><span class="chip">직접 선택</span>
+      <span style="width:12px"></span><span class="chip on">전체 상태</span><span class="chip">확정</span><span class="chip">변경</span></div>
+    <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
+      <button class="btn">엑셀 내보내기 + 대시보드 반영</button>
+      <span class="meta">저장 예정: <b class="mono">예약마스터_20260707_1530.xlsx</b> (대표 PC 로컬)</span>
+    </div>
+    <div class="thint">* 로컬 저장과 온라인 반영은 한 묶음으로 처리되며, 하나라도 실패하면 전체를 되돌리고 재시도를 안내합니다.</div>
+  </div>`;
+}
+
+function history(){
+  const rows=[["2026-07-06 18:20","김대표","로컬 수집기","성공",12,12,0,"성공"],
+    ["2026-07-04 09:41","이직원","엑셀 업로드","성공",9,8,1,"성공"],
+    ["2026-07-03 15:02","김대표","텍스트 문의","성공",1,1,0,"—"],
+    ["2026-07-02 14:05","김대표","엑셀 업로드","되돌림",15,0,0,"—"],
+    ["2026-06-28 20:12","이직원","로컬 수집기","실패",0,0,0,"—"]];
+  const sb=s=>s==="성공"?'<span class="badge b-green">성공</span>':s==="되돌림"?'<span class="badge b-amber">되돌림</span>':s==="실패"?'<span class="badge b-gray">실패</span>':s;
+  return `<div class="card" style="padding:6px 14px"><table>
+    <thead><tr><th>실행 시각</th><th>실행자</th><th>방식</th><th>상태</th><th>전체</th><th>반영</th><th>오류</th><th>로컬 저장</th></tr></thead>
+    <tbody>${rows.map(r=>`<tr><td class="mono">${r[0]}</td><td><b>${r[1]}</b></td><td>${r[2]}</td><td>${sb(r[3])}</td><td>${r[4]}</td><td><b style="color:var(--green-700)">${r[5]}</b></td><td>${r[6]}</td><td>${sb(r[7])}</td></tr>`).join("")}</tbody>
+  </table></div>`;
+}
+
+function staff(){
+  const s=[["김대표","owner@gomawohalme.kr","대표","활성"],["이직원","staff1@gomawohalme.kr","직원","활성"],["박직원","staff2@gomawohalme.kr","직원","비활성"]];
+  return `<div class="staff-note">대표(관리자)만 직원 계정을 초대하거나 비활성화할 수 있어요.</div>
+  <div style="text-align:right;margin-bottom:12px"><button class="btn">+ 직원 초대</button></div>
+  <div class="card" style="padding:6px 14px"><table>
+    <thead><tr><th>이름</th><th>이메일</th><th>역할</th><th>상태</th><th></th></tr></thead>
+    <tbody>${s.map(r=>`<tr><td><b>${r[0]}</b></td><td class="mono">${r[1]}</td>
+      <td><span class="rolebadge ${r[2]=="직원"?"staff":""}">${r[2]}</span></td>
+      <td>${r[3]=="활성"?'<span class="badge b-green">활성</span>':'<span class="badge b-gray">비활성</span>'}</td>
+      <td style="text-align:right"><button class="chip">비활성화</button></td></tr>`).join("")}</tbody>
+  </table></div>`;
+}
+
+const TITLES={home:"대시보드",list:"예약 목록",detail:"예약 상세",cal:"예약 캘린더",upload:"엑셀 업로드",inquiry:"텍스트 문의",export:"데이터 내보내기",history:"업로드·수집 이력",staff:"직원 관리"};
+function render(v,arg){
+  document.getElementById("ttl").textContent=TITLES[v]||"대시보드";
+  const el=document.getElementById("view");
+  el.innerHTML= v=="home"?home():v=="list"?list():v=="detail"?detail(arg):v=="cal"?cal():
+    v=="upload"?upload():v=="inquiry"?inquiry():v=="export"?exportv():v=="history"?history():v=="staff"?staff():home();
+  document.querySelectorAll("#nav a").forEach(a=>a.classList.toggle("active",a.dataset.v===(v=="detail"?"list":v)));
+}
+function go(v,arg){render(v,arg);window.scrollTo(0,0)}
+document.querySelectorAll("#nav a").forEach(a=>a.onclick=()=>go(a.dataset.v));
+render("home");
+</script>
+</body>
+</html>

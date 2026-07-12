@@ -1,0 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-bg text-ink antialiased;
+  font-size: 14px;
+  line-height: 1.5;
+}

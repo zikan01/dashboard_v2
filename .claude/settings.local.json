@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(node \"$env:LOCALAPPDATA\\\\Temp\\\\claude\\\\C--Users-USER-dashboard-v2\\\\0cf58e79-71e9-4a32-8e91-bf5ba0402188\\\\scratchpad\\\\check-supabase.js\")"
+    ]
+  }
+}

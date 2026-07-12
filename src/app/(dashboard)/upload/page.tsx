@@ -1,0 +1,222 @@
+"use client";
+
+import { useRef, useState } from "react";
+import { Upload } from "lucide-react";
+import { buildImportPlan, parseExcelFile, type ImportPlan } from "@/lib/excel";
+import { PREVIEW_ACTION_LABEL } from "@/lib/types";
+import { useData } from "@/components/data-provider";
+import { Badge, previewActionVariant } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardCaption, CardTitle } from "@/components/ui/card";
+
+type Phase = "idle" | "preview" | "applied";
+
+export default function UploadPage() {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const { ready, reservations, canRevert, applyImport, revertLastImport } =
+    useData();
+
+  const [phase, setPhase] = useState<Phase>("idle");
+  const [plan, setPlan] = useState<ImportPlan | null>(null);
+  const [parseError, setParseError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = ""; // 같은 파일 재선택 허용
+    if (!f) return;
+    setParseError("");
+    setNotice("");
+    if (!/\.(xlsx|xls)$/i.test(f.name)) {
+      setParseError("네이버 예약 상세 엑셀 파일(.xlsx, .xls)만 업로드할 수 있습니다.");
+      return;
+    }
+    try {
+      const parsed = await parseExcelFile(f);
+      if (parsed.rows.length === 0 && parsed.errors.length === 0) {
+        setParseError("파일에서 예약 데이터를 찾지 못했습니다.");
+        return;
+      }
+      setPlan(buildImportPlan(reservations, parsed, f.name));
+      setPhase("preview");
+    } catch (err) {
+      setParseError(err instanceof Error ? err.message : "파일을 읽지 못했습니다.");
+    }
+  };
+
+  const apply = async () => {
+    if (!plan || busy) return;
+    setBusy(true);
+    setParseError("");
+    const result = await applyImport(plan);
+    setBusy(false);
+    if (!result.ok) {
+      setParseError(result.message ?? "반영에 실패했습니다. 다시 시도해 주세요.");
+      return;
+    }
+    setPhase("applied");
+  };
+
+  const revert = async () => {
+    if (busy) return;
+    setBusy(true);
+    const result = await revertLastImport();
+    setBusy(false);
+    setPlan(null);
+    setPhase("idle");
+    setNotice(
+      result.ok
+        ? "마지막 반영을 되돌렸습니다. (마지막 1건만 지원)"
+        : result.message ?? "되돌리기에 실패했습니다."
+    );
+  };
+
+  if (!ready) return null;
+  const c = plan?.counts;
+
+  return (
+    <div>
+      {phase === "applied" && c && (
+        <div className="mb-4 rounded-[10px] border border-green-100 bg-[#eaf3ec] px-3.5 py-[11px] text-[12.5px] text-[#2c5c46]">
+          반영 완료 · 신규 {c.create} · 업데이트 {c.update} · 병합 {c.merge} · 취소{" "}
+          {c.cancel}
+          {c.error > 0 && ` · 오류 ${c.error}건 제외`} — 대시보드·예약 목록·캘린더에
+          바로 반영되었습니다. (로컬 엑셀 동시 저장은 2단계에서 연동)
+        </div>
+      )}
+      {notice && (
+        <div className="mb-4 rounded-[10px] border border-amber-100 bg-[#f9f3e6] px-3.5 py-[11px] text-[12.5px] text-amber-700">
+          {notice}
+        </div>
+      )}
+      {parseError && (
+        <div className="mb-4 rounded-[10px] border border-[#eed3d0] bg-[#f9ecea] px-3.5 py-[11px] text-[12.5px] text-[#a2453c]">
+          {parseError}
+        </div>
+      )}
+
+      <div className="mb-[22px] rounded-card border-2 border-dashed border-[#d8d2c4] bg-cream p-11 text-center">
+        <div className="mx-auto mb-3 flex h-[46px] w-[46px] items-center justify-center rounded-xl bg-green-100 text-green-700">
+          <Upload size={22} />
+        </div>
+        <div className="text-[15px] font-semibold">
+          네이버 예약 상세 엑셀 파일을 올려주세요
+        </div>
+        <div className="mb-4 mt-1.5 text-[12.5px] text-muted">
+          파일을 선택하면 검증 후 미리보기가 표시되고, 반영하기를 눌러야 저장됩니다 ·
+          .xlsx, .xls
+        </div>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".xlsx,.xls"
+          className="hidden"
+          onChange={onFileChange}
+        />
+        <Button onClick={() => fileRef.current?.click()}>파일 선택</Button>
+        <Button variant="ghost" className="ml-2" disabled title="2단계에서 연동 예정">
+          로컬 수집기로 가져오기 (예정)
+        </Button>
+        {canRevert && (
+          <div className="mt-4">
+            <Button variant="ghost" onClick={revert}>
+              마지막 업로드 되돌리기
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {plan && phase !== "idle" && (
+        <Card>
+          <div className="mb-1 flex items-center justify-between">
+            <CardTitle>업로드 미리보기</CardTitle>
+            <Button onClick={apply} disabled={phase === "applied" || busy}>
+              {phase === "applied" ? "반영 완료" : busy ? "반영 중…" : "반영하기"}
+            </Button>
+          </div>
+          <CardCaption>{plan.fileName} · 반영 전 검토</CardCaption>
+
+          <div className="mb-4 grid grid-cols-6 gap-3 max-[1080px]:grid-cols-3">
+            {[
+              { label: "전체 예약", value: plan.counts.total },
+              { label: "신규", value: plan.counts.create },
+              { label: "업데이트", value: plan.counts.update },
+              { label: "병합 후보", value: plan.counts.merge, highlight: true },
+              { label: "취소", value: plan.counts.cancel },
+              { label: "오류", value: plan.counts.error },
+            ].map((card) => (
+              <div
+                key={card.label}
+                className="rounded-[11px] border border-border bg-white p-3.5 text-center"
+              >
+                <div
+                  className={`mb-1 text-[11px] ${card.highlight ? "font-semibold text-green-700" : "text-muted"}`}
+                >
+                  {card.label}
+                </div>
+                <div className="text-2xl font-bold">{card.value}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr>
+                  {["표시번호", "예약자", "처리", "내용"].map((h) => (
+                    <th
+                      key={h}
+                      className="border-b border-border bg-[#faf7f0] px-2.5 py-3 text-left text-[11.5px] font-semibold text-muted"
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {plan.items.map((item, i) => (
+                  <tr key={`${item.displayNo}-${i}`}>
+                    <td className="border-b border-[#f2eee5] px-2.5 py-[13px] text-xs tabular-nums text-[#6f6a5f]">
+                      {item.displayNo}
+                    </td>
+                    <td className="border-b border-[#f2eee5] px-2.5 py-[13px] text-[13px] font-bold">
+                      {item.guestName}
+                    </td>
+                    <td className="border-b border-[#f2eee5] px-2.5 py-[13px]">
+                      <Badge variant={previewActionVariant[item.action]}>
+                        {PREVIEW_ACTION_LABEL[item.action]}
+                      </Badge>
+                    </td>
+                    <td className="border-b border-[#f2eee5] px-2.5 py-[13px] text-[13px]">
+                      {item.detail}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {plan.errors.length > 0 && (
+            <div className="mt-4 rounded-[10px] border border-[#eed3d0] bg-[#f9ecea] px-3.5 py-[11px] text-[12.5px] text-[#a2453c]">
+              <b>오류 {plan.errors.length}건 (반영에서 제외됩니다)</b>
+              <ul className="mt-1.5 space-y-0.5">
+                {plan.errors.map((err) => (
+                  <li key={err.row}>
+                    {err.row}행 · {err.message}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="mt-3 text-[11.5px] text-muted">
+            * 같은 예약(네이버 예약번호 또는 이름+연락처+방문일 일치)은 새로 만들지 않고
+            업데이트/병합되며, 정산·세금계산서·메모는 덮어쓰지 않습니다. 반영 후 마지막
+            1건은 되돌릴 수 있습니다.
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
