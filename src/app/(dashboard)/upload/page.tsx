@@ -2,7 +2,12 @@
 
 import { useRef, useState } from "react";
 import { Upload } from "lucide-react";
-import { buildImportPlan, parseExcelFile, type ImportPlan } from "@/lib/excel";
+import {
+  buildImportPlan,
+  parseExcelFile,
+  validateExcelFile,
+  type ImportPlan,
+} from "@/lib/excel";
 import { PREVIEW_ACTION_LABEL } from "@/lib/types";
 import { useData } from "@/components/data-provider";
 import { Badge, previewActionVariant } from "@/components/ui/badge";
@@ -28,8 +33,10 @@ export default function UploadPage() {
     if (!f) return;
     setParseError("");
     setNotice("");
-    if (!/\.(xlsx|xls)$/i.test(f.name)) {
-      setParseError("네이버 예약 상세 엑셀 파일(.xlsx, .xls)만 업로드할 수 있습니다.");
+    // 크기(10MB)·확장자·MIME 사전 검증
+    const invalid = validateExcelFile(f);
+    if (invalid) {
+      setParseError(invalid);
       return;
     }
     try {

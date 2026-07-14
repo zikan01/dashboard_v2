@@ -9,6 +9,36 @@ import type {
   ReservationStatus,
 } from "./types";
 
+// ---- 업로드 제한 (악성/비정상 파일 방어 — 서버 검증(src/lib/validation.ts)과 상한 일치) ----
+
+export const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+export const MAX_ROWS = 2000; // 데이터 행 상한 (사업장 1곳 월 예약 규모 대비 충분)
+export const ALLOWED_EXTENSIONS = [".xlsx", ".xls"];
+export const ALLOWED_MIME_TYPES = [
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
+  "application/vnd.ms-excel", // .xls
+  "application/octet-stream", // 일부 브라우저/OS가 타입을 못 채우는 경우
+  "", // 타입 미제공 — 확장자 검사로 보완
+];
+
+// 파일 크기·확장자·MIME 사전 검증 — 통과 못 하면 사유 문자열 반환
+export function validateExcelFile(file: File): string | null {
+  const name = file.name.toLowerCase();
+  if (!ALLOWED_EXTENSIONS.some((ext) => name.endsWith(ext))) {
+    return "네이버 예약 상세 엑셀 파일(.xlsx, .xls)만 업로드할 수 있습니다.";
+  }
+  if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+    return "엑셀 파일 형식이 아닙니다. 파일을 다시 확인해 주세요.";
+  }
+  if (file.size > MAX_FILE_SIZE) {
+    return `파일이 너무 큽니다 (최대 ${MAX_FILE_SIZE / 1024 / 1024}MB). 기간을 나눠 내려받아 주세요.`;
+  }
+  if (file.size === 0) {
+    return "빈 파일입니다.";
+  }
+  return null;
+}
+
 export interface ParsedRow {
   reservationNo: string | null;
   guestName: string;
@@ -212,6 +242,10 @@ function parseOptions(v: unknown): string[] {
 // ---- 파일 파싱 ----
 
 export async function parseExcelFile(file: File): Promise<ParseResult> {
+  // 크기·확장자·MIME 검증 — 호출부(업로드 페이지)에서도 검사하지만 이중 방어
+  const invalid = validateExcelFile(file);
+  if (invalid) throw new Error(invalid);
+
   const wb = XLSX.read(await file.arrayBuffer(), {
     type: "array",
     cellDates: true,
@@ -222,6 +256,11 @@ export async function parseExcelFile(file: File): Promise<ParseResult> {
     header: 1,
     defval: "",
   });
+  if (grid.length > MAX_ROWS) {
+    throw new Error(
+      `행이 너무 많습니다 (${grid.length.toLocaleString()}행, 최대 ${MAX_ROWS.toLocaleString()}행). 기간을 나눠 업로드해 주세요.`
+    );
+  }
 
   const detected = detectColumns(grid);
   if (

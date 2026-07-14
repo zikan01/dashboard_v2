@@ -19,6 +19,23 @@ export default function SetPasswordPage() {
   useEffect(() => {
     // 초대 링크의 코드 교환이 끝날 때까지 잠시 대기 후 세션 확인
     const check = async () => {
+      // 초대/매직링크가 세션 토큰을 URL 해시로 전달하는 경우(implicit flow) 직접 세션 수립
+      // — @supabase/ssr의 PKCE 클라이언트는 해시 토큰을 자동 처리하지 않는다
+      const hashParams = new URLSearchParams(window.location.hash.slice(1));
+      const accessToken = hashParams.get("access_token");
+      const refreshToken = hashParams.get("refresh_token");
+      if (accessToken && refreshToken) {
+        const { error: sessionErr } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        if (!sessionErr) {
+          // 토큰이 남지 않도록 URL에서 해시 제거
+          window.history.replaceState(null, "", window.location.pathname);
+          setHasSession(true);
+          return;
+        }
+      }
       for (let i = 0; i < 6; i++) {
         const {
           data: { session },

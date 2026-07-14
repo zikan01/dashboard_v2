@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { parseInquiryText } from "@/lib/inquiry-parser";
 import { INQUIRY_STATUS_LABEL, type Inquiry } from "@/lib/types";
 import { todayStr } from "@/lib/utils";
@@ -23,8 +23,19 @@ export default function InquiriesPage() {
   const [text, setText] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  // 승격 진행 중인 문의 id — 해당 버튼만 로딩 표시
+  const [promotingId, setPromotingId] = useState<string | null>(null);
+  // 승격 결과 토스트 (성공/실패)
+  const [toast, setToast] = useState<{ type: "success" | "error"; text: string } | null>(null);
   // 옵션 입력칸은 쉼표 입력 중 상태 유지를 위해 임시 문자열 보관
   const [optionDrafts, setOptionDrafts] = useState<Record<string, string>>({});
+
+  // 토스트 자동 닫힘 (5초)
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 5000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   if (!ready) return null;
 
@@ -49,7 +60,7 @@ export default function InquiriesPage() {
     );
 
   const promote = async (q: Inquiry) => {
-    if (busy) return;
+    if (promotingId) return; // 이미 승격 진행 중
     const p = q.parsed;
     const missing: string[] = [];
     if (!p.guestName?.trim()) missing.push("예약자명");
@@ -57,13 +68,14 @@ export default function InquiriesPage() {
     if (!p.visitDate) missing.push("방문일");
     if (!p.pax || p.pax <= 0) missing.push("인원");
     if (missing.length > 0) {
-      setNotice(
-        `${missing.join("·")}이(가) 비어 있습니다. 아래 입력칸에서 직접 채운 뒤 승격해 주세요.`
-      );
+      setToast({
+        type: "error",
+        text: `${missing.join("·")}이(가) 비어 있습니다. 입력칸에서 직접 채운 뒤 승격해 주세요.`,
+      });
       return;
     }
-    setBusy(true);
-    const displayNo = await promoteInquiry(
+    setPromotingId(q.id);
+    const result = await promoteInquiry(
       {
         guestName: p.guestName!.trim(),
         guestPhone: p.phone!.trim(),
@@ -73,11 +85,17 @@ export default function InquiriesPage() {
       },
       q.id
     );
-    setBusy(false);
-    setNotice(
-      displayNo
-        ? `${displayNo} 예약으로 승격되었습니다. 예약 목록·캘린더·대시보드에 반영됩니다.`
-        : "예약 승격에 실패했습니다. 다시 시도해 주세요."
+    setPromotingId(null);
+    setToast(
+      result.ok && result.displayNo
+        ? {
+            type: "success",
+            text: `${result.displayNo} 예약으로 승격되었습니다. 예약 목록·캘린더·대시보드에 반영됩니다.`,
+          }
+        : {
+            type: "error",
+            text: result.message ?? "예약 승격에 실패했습니다. 다시 시도해 주세요.",
+          }
     );
   };
 
@@ -219,10 +237,18 @@ export default function InquiriesPage() {
               </div>
 
               <div className="mt-3 flex gap-1.5">
-                <Button onClick={() => promote(q)}>
-                  {merge ? "기존 예약에 병합" : "예약으로 승격"}
+                <Button onClick={() => promote(q)} disabled={promotingId !== null}>
+                  {promotingId === q.id
+                    ? "승격 중…"
+                    : merge
+                      ? "기존 예약에 병합"
+                      : "예약으로 승격"}
                 </Button>
-                <Button variant="ghost" onClick={() => setInquiryStatus(q.id, "rejected")}>
+                <Button
+                  variant="ghost"
+                  disabled={promotingId !== null}
+                  onClick={() => setInquiryStatus(q.id, "rejected")}
+                >
                   반려
                 </Button>
               </div>
@@ -256,6 +282,20 @@ export default function InquiriesPage() {
           </>
         )}
       </Card>
+
+      {/* 승격 결과 토스트 — 화면 어디에 있어도 보이도록 고정 표시 */}
+      {toast && (
+        <div
+          role="status"
+          className={`fixed bottom-6 left-1/2 z-50 w-max max-w-[90vw] -translate-x-1/2 rounded-[10px] border px-4 py-3 text-[13px] font-semibold shadow-card ${
+            toast.type === "success"
+              ? "border-green-100 bg-[#eaf3ec] text-[#2c5c46]"
+              : "border-[#eed3d0] bg-[#f9ecea] text-[#a2453c]"
+          }`}
+        >
+          {toast.text}
+        </div>
+      )}
     </div>
   );
 }

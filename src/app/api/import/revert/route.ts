@@ -38,6 +38,11 @@ export async function POST() {
 
       if (item.action === "create" && after?.id) {
         // 신규 생성건 → 삭제 (옵션·운영상태·이력 CASCADE)
+        // 승격된 문의가 참조 중이면 FK로 삭제가 막히므로 먼저 연결 해제
+        await service
+          .from("reservation_inquiries")
+          .update({ promoted_reservation_id: null })
+          .eq("promoted_reservation_id", after.id);
         await service.from("reservations").delete().eq("id", after.id);
       } else if (before?.id) {
         // 갱신건 → 이전 사실정보로 복원 (운영상태는 건드리지 않음)

@@ -2,14 +2,7 @@
 
 import { NextResponse } from "next/server";
 import { createServiceClient, requireUser } from "@/lib/supabase/server";
-
-interface PromoteInput {
-  guestName: string;
-  guestPhone: string;
-  visitStartDate: string;
-  pax: number;
-  options: string[];
-}
+import { parseBody, promoteSchema } from "@/lib/validation";
 
 // 표시번호 생성: GMW-YYMMDD-NNN (방문일 기준 일련번호)
 async function nextDisplayNo(
@@ -36,16 +29,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "이 작업은 관리자만 할 수 있습니다." }, { status: 403 });
   }
 
-  const { input, inquiryId } = (await req.json()) as {
-    input: PromoteInput;
-    inquiryId?: string;
-  };
-  if (!input?.guestName || !input.guestPhone || !input.visitStartDate || !input.pax) {
-    return NextResponse.json(
-      { error: "예약자명·연락처·방문일·인원이 모두 필요합니다." },
-      { status: 400 }
-    );
+  const parsed = await parseBody(req, promoteSchema);
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 });
   }
+  const { input, inquiryId } = parsed.data;
 
   const service = createServiceClient();
 

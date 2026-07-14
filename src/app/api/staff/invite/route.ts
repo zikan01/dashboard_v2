@@ -2,6 +2,7 @@
 
 import { NextResponse } from "next/server";
 import { createServiceClient, requireUser } from "@/lib/supabase/server";
+import { inviteStaffSchema, parseBody } from "@/lib/validation";
 
 export async function POST(req: Request) {
   const ctx = await requireUser("owner");
@@ -9,10 +10,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "이 작업은 관리자만 할 수 있습니다." }, { status: 403 });
   }
 
-  const { email, name } = (await req.json()) as { email: string; name: string };
-  if (!email?.trim() || !name?.trim()) {
-    return NextResponse.json({ error: "이름과 이메일이 필요합니다." }, { status: 400 });
+  const parsed = await parseBody(req, inviteStaffSchema);
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 });
   }
+  const { email, name } = parsed.data;
 
   const origin = new URL(req.url).origin;
   const service = createServiceClient();

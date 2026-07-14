@@ -45,6 +45,10 @@ interface ActionResult {
   message?: string;
 }
 
+export interface PromoteResult extends ActionResult {
+  displayNo?: string;
+}
+
 interface DataContextValue {
   ready: boolean;
   reservations: Reservation[];
@@ -63,7 +67,7 @@ interface DataContextValue {
   promoteInquiry: (
     input: PromoteInput,
     inquiryId: string
-  ) => Promise<string | null>;
+  ) => Promise<PromoteResult>;
   deleteReservation: (id: string) => Promise<void>;
   resetAllData: () => Promise<void>;
   addInquiry: (rawText: string, parsed: ParsedInquiry) => Promise<void>;
@@ -258,9 +262,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       const result = (await postApi("/api/inquiries/promote", {
         input,
         inquiryId,
-      })) as ActionResult & { displayNo?: string };
+      })) as PromoteResult;
       await fetchAll();
-      return result.ok ? (result.displayNo ?? null) : null;
+      return result; // 실패 사유(message)까지 화면에 전달
     },
     [fetchAll]
   );
@@ -298,6 +302,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   // ---- 클라이언트 직접 쓰기 (RLS 허용 범위) ----
 
   // 운영상태(정산·세금·메모): 직원도 수정 가능 (TRD §3.3 manual_status_update)
+  // 작성자 위조 방지를 위해 서버 API 경유 — updated_by/changed_by는 서버 세션에서 기록
   const updateManual = useCallback(
     async (
       id: string,
@@ -308,25 +313,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setReservations((prev) =>
         prev.map((r) => (r.id === id ? { ...r, ...patch } : r))
       );
-      const dbPatch: Record<string, string> = {};
-      if (patch.settlementStatus) dbPatch.settlement_status = patch.settlementStatus;
-      if (patch.taxInvoiceStatus) dbPatch.tax_invoice_status = patch.taxInvoiceStatus;
-      if (patch.memo !== undefined) dbPatch.memo = patch.memo;
-      if (user?.id) dbPatch.updated_by = user.id;
-      await supabase
-        .from("reservation_manual_statuses")
-        .update(dbPatch)
-        .eq("reservation_id", id);
+      const result = await postApi("/api/reservations/manual", {
+        reservationId: id,
+        patch,
+        logs,
+      });
+      if (!result.ok) {
+        // 실패 시 서버 상태로 되돌림
+        await fetchAll();
+        return;
+      }
       if (logs.length > 0) {
-        await supabase.from("reservation_audit_logs").insert(
-          logs.map((l) => ({
-            reservation_id: id,
-            field_name: l.fieldName,
-            old_value: l.oldValue,
-            new_value: l.newValue,
-            changed_by: user?.id,
-          }))
-        );
         const { data } = await supabase
           .from("reservation_audit_logs")
           .select(
@@ -336,7 +333,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setAuditLogs((data ?? []).map(mapAudit));
       }
     },
-    [supabase, user]
+    [supabase, fetchAll]
   );
 
   // 문의: owner만 쓰기 가능 (RLS inquiries_write)

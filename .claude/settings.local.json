@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "PowerShell(node \"$env:LOCALAPPDATA\\\\Temp\\\\claude\\\\C--Users-USER-dashboard-v2\\\\0cf58e79-71e9-4a32-8e91-bf5ba0402188\\\\scratchpad\\\\check-supabase.js\")"
+      "PowerShell(node \"$env:LOCALAPPDATA\\\\Temp\\\\claude\\\\C--Users-USER-dashboard-v2\\\\0cf58e79-71e9-4a32-8e91-bf5ba0402188\\\\scratchpad\\\\check-supabase.js\")",
+      "Bash(node \"C:\\\\Users\\\\USER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-USER-dashboard-v2\\\\2bf8d7ef-b37e-41fb-83dc-f5bf2ec63f73\\\\scratchpad\\\\delete-users.mjs\")",
+      "Bash(npx tsc *)",
+      "Bash(node *)",
+      "Bash(npm run *)",
+      "Bash(curl -sI http://localhost:3000/login)",
+      "Bash(supabase projects *)"
     ]
   }
 }
