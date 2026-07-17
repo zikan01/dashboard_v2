@@ -292,7 +292,7 @@ CREATE TABLE notification_jobs (
     )
   ),
   payload_snapshot jsonb NOT NULL DEFAULT '{}'::jsonb,
-  dedupe_key text NOT NULL UNIQUE,
+  dedupe_key text NOT NULL,
   attempt_count integer NOT NULL DEFAULT 0,
   next_retry_at timestamptz,
   locked_at timestamptz,
@@ -381,6 +381,12 @@ CREATE INDEX idx_notification_deliveries_job
 
 CREATE INDEX idx_notification_deliveries_provider_message
   ON notification_deliveries(provider, provider_message_id);
+
+-- 활성 상태에만 적용하는 부분 유니크 인덱스.
+-- 취소·실패 Job은 dedupe_key를 점유하지 않으므로 재생성·재발송이 가능하다.
+CREATE UNIQUE INDEX uq_notification_jobs_dedupe_active
+  ON notification_jobs(dedupe_key)
+  WHERE status IN ('scheduled','processing','success');
 ```
 
 ---
@@ -396,13 +402,27 @@ SHA-256(
 )
 ```
 
+수동 발송·재발송 작업의 `dedupe_key`:
+
+```text
+SHA-256(
+  business_id + reservation_id + 'manual'
+  + parent_job_id(없으면 신규 UUID)
+)
+```
+
+수동·재발송은 자동 작업과 키 조합이 다르므로 유니크 제약과 충돌하지 않으며,
+새 Job으로 기록하고 `parent_job_id`로 원본과 연결한다.
+
+유니크 제약은 활성 상태(`scheduled`, `processing`, `success`)에만 적용하는
+부분 유니크 인덱스로 건다(10장). 취소·실패된 Job은 키를 점유하지 않으므로
+취소 일정 재생성과 실패 재발송이 가능하다.
+
 Delivery:
 
 ```text
 UNIQUE(job_id, channel, sequence_no)
 ```
-
-수동 재발송은 새 Job으로 기록하고 `parent_job_id`로 연결한다.
 
 ---
 
@@ -584,6 +604,10 @@ Webhook 이벤트는 Provider message ID, event type과 timestamp를 조합한 H
 Delivery 성공(sent 또는 delivered) → success
 Delivery 최종 실패 → failed
 ```
+
+`sent`로 성공 처리된 뒤 Webhook 또는 상태 대조에서 실패가 확인되면
+Job을 `failed`로 되돌리고 실패 관리 화면에 노출한다.
+상태 반전도 감사 로그에 기록한다.
 
 DB 함수:
 
