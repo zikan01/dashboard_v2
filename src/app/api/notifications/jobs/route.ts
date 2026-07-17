@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createServiceClient, requireUser } from "@/lib/supabase/server";
 import { parseBody } from "@/lib/validation";
-import { dispatchDueJobs } from "@/lib/notifications/dispatcher";
+import { dispatchJobById } from "@/lib/notifications/dispatcher";
 import { createSolapiProvider } from "@/lib/notifications/providers/solapi-provider";
 import { createMockProvider } from "@/lib/notifications/providers/mock-provider";
 import type { SendMode } from "@/lib/notifications/types";
@@ -50,18 +50,32 @@ export async function POST(req: Request) {
     if (!allowed.includes(job.status)) {
       return NextResponse.json({ error: "이 상태에서는 실행할 수 없는 동작입니다." }, { status: 400 });
     }
-    await service.from("notification_jobs").update({
+    const { data: reset, error: resetErr } = await service.from("notification_jobs").update({
       status: "scheduled", scheduled_at: now, next_retry_at: null,
       attempt_count: 0, cancellation_reason: null, updated_at: now,
-    }).eq("id", jobId);
+    }).eq("id", jobId).eq("status", job.status).select("id");
+    if (resetErr) {
+      // 유니크 제약: 같은 예약·단계에 이미 예정된 안내가 있으면 재발송 불가
+      const msg = resetErr.code === "23505"
+        ? "이미 같은 안내가 예정되어 있어 재발송할 수 없습니다."
+        : resetErr.message;
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
+    if ((reset?.length ?? 0) === 0) {
+      return NextResponse.json({ error: "작업 상태가 방금 바뀌었습니다. 새로고침 후 다시 시도하세요." }, { status: 409 });
+    }
 
     const mode = (process.env.NOTIFICATION_SEND_MODE ?? "dry_run") as SendMode;
     const provider = mode === "dry_run" ? createMockProvider() : createSolapiProvider();
-    dispatched = await dispatchDueJobs({
+    dispatched = await dispatchJobById({
       service, provider, mode,
       allowlist: (process.env.NOTIFICATION_TEST_PHONE_ALLOWLIST ?? "").split(",").map(s => s.trim()).filter(Boolean),
       workerId: `manual-${ctx.userId.slice(0, 8)}`,
+      jobId,
     });
+    if (dispatched.claimed === 0) {
+      return NextResponse.json({ error: "작업이 이미 처리 중입니다." }, { status: 409 });
+    }
   }
 
   await service.from("system_audit_logs").insert({

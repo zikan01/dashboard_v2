@@ -65,17 +65,25 @@ export default function NotificationSchedulePage() {
   const [notice, setNotice] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [costUnit, setCostUnit] = useState<{ smsCost?: number; lmsCost?: number }>({});
 
   const load = useCallback(async () => {
     const db = createClient();
-    const { data } = await db
-      .from("notification_jobs")
-      .select(
-        "id, stage, status, scheduled_at, reservations(guest_name, display_no, visit_start_date), notification_rules(message_templates(body_text))"
-      )
-      .in("status", [...UPCOMING_STATUSES, ...CANCELLED_STATUSES])
-      .order("scheduled_at");
+    const [{ data }, { data: settings }] = await Promise.all([
+      db
+        .from("notification_jobs")
+        .select(
+          "id, stage, status, scheduled_at, reservations(guest_name, display_no, visit_start_date), notification_rules(message_templates(body_text))"
+        )
+        .in("status", [...UPCOMING_STATUSES, ...CANCELLED_STATUSES])
+        .order("scheduled_at"),
+      db.from("business_notification_settings").select("sms_unit_cost, lms_unit_cost").maybeSingle(),
+    ]);
     setJobs((data as unknown as JobRow[] | null) ?? []);
+    setCostUnit({
+      smsCost: settings?.sms_unit_cost != null ? Number(settings.sms_unit_cost) : undefined,
+      lmsCost: settings?.lms_unit_cost != null ? Number(settings.lms_unit_cost) : undefined,
+    });
     setLoaded(true);
   }, []);
   useEffect(() => {
@@ -100,16 +108,17 @@ export default function NotificationSchedulePage() {
   const filtered = useMemo(() => {
     if (tab === "upcoming") return jobs.filter((j) => UPCOMING_STATUSES.includes(j.status));
     if (tab === "cancelled") return jobs.filter((j) => CANCELLED_STATUSES.includes(j.status));
-    if (tab === "today") return jobs.filter((j) => kstDateStr(j.scheduled_at) === todayStr);
+    if (tab === "today")
+      return jobs.filter((j) => UPCOMING_STATUSES.includes(j.status) && kstDateStr(j.scheduled_at) === todayStr);
     return jobs.filter((j) => {
       const d = kstDateStr(j.scheduled_at);
-      return d >= weekStartStr && d <= weekEndStr;
+      return UPCOMING_STATUSES.includes(j.status) && d >= weekStartStr && d <= weekEndStr;
     });
   }, [jobs, tab, todayStr, weekStartStr, weekEndStr]);
 
   const costFor = (job: JobRow) => {
     const body = job.notification_rules?.message_templates?.body_text;
-    return body ? `약 ${estimateCost(body)}원` : "—";
+    return body ? `약 ${estimateCost(body, costUnit)}원` : "—";
   };
 
   const runAction = useCallback(

@@ -58,18 +58,21 @@ export default function NotificationSettingsPage() {
   const [notice, setNotice] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [busy, setBusy] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(async () => {
+    if (user?.role !== "owner") return;
     const db = createClient();
     const [{ data: s }, { data: r }, { data: t }] = await Promise.all([
       db.from("business_notification_settings").select("*").maybeSingle(),
       db.from("notification_rules").select("stage, enabled, send_time, sms_template_id").order("offset_days", { ascending: false }),
       db.from("message_templates").select("id, name, body_text, purpose, is_active").eq("is_active", true).order("created_at"),
     ]);
-    setSettings(s ?? null);
+    setSettings(s ?? { notification_enabled: false, sender_phone: null, business_phone: null, business_address: null, sms_unit_cost: 18, lms_unit_cost: 45 });
     setRules(r ?? []);
     setTemplates(t ?? []);
-  }, []);
+    setLoaded(true);
+  }, [user]);
   useEffect(() => { void load(); }, [load]);
 
   const setRule = (stage: string, patch: Partial<Rule>) =>
@@ -123,7 +126,7 @@ export default function NotificationSettingsPage() {
   if (user?.role !== "owner") {
     return <div className="text-[13px] text-muted">대표(관리자)만 접근할 수 있는 메뉴입니다.</div>;
   }
-  if (!settings) return <div className="text-[13px] text-muted">불러오는 중…</div>;
+  if (!loaded || !settings) return <div className="text-[13px] text-muted">불러오는 중…</div>;
 
   return (
     <div className="grid grid-cols-[minmax(0,1.5fr)_minmax(300px,1fr)] items-start gap-5 max-[1100px]:grid-cols-1">

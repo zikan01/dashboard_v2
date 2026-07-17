@@ -71,6 +71,7 @@ export default function MessageTemplatesPage() {
   const bodyRef = useRef<HTMLTextAreaElement>(null);
 
   const load = useCallback(async () => {
+    if (user?.role !== "owner") return;
     const db = createClient();
     const { data } = await db
       .from("message_templates")
@@ -78,7 +79,7 @@ export default function MessageTemplatesPage() {
       .order("purpose")
       .order("created_at");
     setTemplates(data ?? []);
-  }, []);
+  }, [user]);
   useEffect(() => { void load(); }, [load]);
 
   const selectTemplate = (t: Tpl) => {

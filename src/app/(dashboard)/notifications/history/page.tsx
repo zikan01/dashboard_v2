@@ -23,6 +23,7 @@ interface ContentSnapshot {
   missing_vars?: string[];
 }
 interface DeliveryRow {
+  sequence_no: number;
   status: string;
   provider_message_id: string | null;
   provider_message_type: string | null;
@@ -73,7 +74,7 @@ export default function NotificationHistoryPage() {
     const { data } = await db
       .from("notification_jobs")
       .select(
-        "id, stage, status, updated_at, reservations(guest_name, display_no), notification_deliveries(status, provider_message_id, provider_message_type, estimated_cost, actual_cost, sent_at, delivered_at, last_error_code, last_error_message, content_snapshot)"
+        "id, stage, status, updated_at, reservations(guest_name, display_no), notification_deliveries(sequence_no, status, provider_message_id, provider_message_type, estimated_cost, actual_cost, sent_at, delivered_at, last_error_code, last_error_message, content_snapshot)"
       )
       .in("status", HISTORY_STATUSES)
       .order("updated_at", { ascending: false })
@@ -106,7 +107,9 @@ export default function NotificationHistoryPage() {
       <div className="flex flex-col gap-3">
         {filtered.map((job) => {
           const deliveries = job.notification_deliveries ?? [];
-          const primary = deliveries[deliveries.length - 1] ?? null;
+          const primary = deliveries.length
+            ? deliveries.reduce((a, b) => (b.sequence_no > a.sequence_no ? b : a))
+            : null;
           const cost = primary?.actual_cost ?? primary?.estimated_cost ?? null;
           return (
             <Card key={job.id}>

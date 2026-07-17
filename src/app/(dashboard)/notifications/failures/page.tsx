@@ -11,6 +11,7 @@ import type { DispatchSummary } from "@/lib/notifications/dispatcher";
 import { STAGE_LABEL, fmtKst } from "@/lib/notifications/ui-labels";
 
 interface DeliveryRow {
+  sequence_no: number;
   last_error_code: string | null;
   last_error_message: string | null;
   failed_at: string | null;
@@ -39,7 +40,7 @@ export default function NotificationFailuresPage() {
     const { data } = await db
       .from("notification_jobs")
       .select(
-        "id, stage, updated_at, cancellation_reason, reservations(guest_name, display_no, guest_phone), notification_deliveries(last_error_code, last_error_message, failed_at)"
+        "id, stage, updated_at, cancellation_reason, reservations(guest_name, display_no, guest_phone), notification_deliveries(sequence_no, last_error_code, last_error_message, failed_at)"
       )
       .eq("status", "failed")
       .order("updated_at", { ascending: false });
@@ -117,7 +118,9 @@ export default function NotificationFailuresPage() {
         <div className="flex flex-col gap-3">
           {jobs.map((job) => {
             const deliveries = job.notification_deliveries ?? [];
-            const primary = deliveries[deliveries.length - 1] ?? null;
+            const primary = deliveries.length
+              ? deliveries.reduce((a, b) => (b.sequence_no > a.sequence_no ? b : a))
+              : null;
             const reason =
               job.cancellation_reason ??
               (primary?.last_error_code

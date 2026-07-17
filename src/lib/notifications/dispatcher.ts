@@ -60,6 +60,49 @@ export async function dispatchDueJobs(opts: {
   return summary;
 }
 
+// 수동 발송 전용: 대상 Job 1건만 잠금·발송한다.
+// 조건부 UPDATE(status='scheduled'일 때만)로 claim하므로 Cron·중복 클릭과 경합해도
+// 한쪽만 성공한다 (claimed=0이면 이미 처리 중이거나 상태가 바뀐 것).
+export async function dispatchJobById(opts: {
+  service: SupabaseClient;
+  provider: MessageProvider;
+  mode: SendMode;
+  allowlist: string[];
+  workerId: string;
+  jobId: string;
+}): Promise<DispatchSummary> {
+  const { service, provider, mode, allowlist, workerId, jobId } = opts;
+  const summary: DispatchSummary = { claimed: 0, sent: 0, dryRun: 0, skipped: 0, failed: 0 };
+
+  const { data: claimed, error } = await service.from("notification_jobs")
+    .update({
+      status: "processing",
+      locked_at: new Date().toISOString(),
+      locked_by: workerId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", jobId)
+    .eq("status", "scheduled")
+    .select("*");
+  if (error) throw new Error(`단건 claim 실패: ${error.message}`);
+  const job = (claimed ?? [])[0] as JobRow | undefined;
+  if (!job) return summary; // 이미 처리 중이거나 상태 변경됨
+
+  // 잠금을 확보했으므로 시도 횟수 증가는 별도 UPDATE로 안전
+  const attempt = job.attempt_count + 1;
+  await service.from("notification_jobs")
+    .update({ attempt_count: attempt }).eq("id", jobId);
+  job.attempt_count = attempt;
+
+  summary.claimed = 1;
+  try {
+    await processJob(service, provider, mode, allowlist, job, summary);
+  } catch (e) {
+    await scheduleRetryOrFail(service, job, "INTERNAL_ERROR", String(e), summary);
+  }
+  return summary;
+}
+
 async function processJob(
   service: SupabaseClient,
   provider: MessageProvider,
