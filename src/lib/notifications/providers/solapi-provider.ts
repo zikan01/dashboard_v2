@@ -55,9 +55,14 @@ export function createSolapiProvider(): MessageProvider {
       }
     },
     async getBalance() {
-      // 선불 포인트(point)와 캐시(balance)를 합산한 잔액
+      // 콘솔 "합산 잔액"과 동일한 계산 (2026-07-17 실계정 대조: deposit 10,000 / balance 9,000 / point 300 → 콘솔 10,300)
+      // 국내 결제는 deposit(예치금), 해외 결제는 balance(잔액)에 담기고, 국내 충전 계정의
+      // balance는 예치금에서 부가세를 뺀 파생값이라 둘을 더하면 이중 계산 — 큰 쪽 + point로 합산
       const res: any = await svc.getBalance();
-      return Number(res?.balance ?? 0) + Number(res?.point ?? 0);
+      return (
+        Math.max(Number(res?.balance ?? 0), Number(res?.deposit ?? 0)) +
+        Number(res?.point ?? 0)
+      );
     },
   };
 }
