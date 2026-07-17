@@ -585,16 +585,25 @@ interface MessageProvider {
 POST /api/webhooks/solapi
 ```
 
+등록: SOLAPI 콘솔의 웹훅 메뉴에서 메시지 리포트 이벤트로 등록하고,
+등록 시 설정한 시크릿키를 `SOLAPI_WEBHOOK_SECRET` 환경변수로 보관한다.
+
+검증 (SOLAPI는 HMAC 서명이 아닌 고정 시크릿 헤더 비교 방식):
+
+1. `X-SOLAPI-EVENT-NAME` 헤더가 기대한 이벤트(예: `SINGLE-REPORT`)인지 확인
+2. `X-SOLAPI-SECRET` 헤더 값이 시크릿키와 일치하는지 비교 (불일치 시 무시)
+3. Payload Zod 검증
+
 처리:
 
-1. Webhook Secret 검증
-2. Payload Zod 검증
-3. 중복 이벤트 Insert 차단
-4. Delivery 갱신
-5. Job 상태 재계산
-6. 2xx 응답
+1. 위 검증 통과
+2. 중복 이벤트 Insert 차단
+3. Delivery 갱신 (`statusCode` `4000` = 성공, 그 외 실패 코드 매핑)
+4. Job 상태 재계산
+5. 2xx 응답
 
 Webhook 이벤트는 Provider message ID, event type과 timestamp를 조합한 Hash를 `event_key`로 사용한다.
+발송 요청 시 `customFields`에 내부 delivery ID를 넣어 리포트와 내부 레코드를 매칭한다.
 
 ---
 
