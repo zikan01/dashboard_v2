@@ -14,7 +14,7 @@ import {
   type ReservationStatus,
   type SettlementStatus,
 } from "@/lib/types";
-import { formatShortDate, formatWon, maskPhone } from "@/lib/utils";
+import { formatShortDate, formatWon } from "@/lib/utils";
 import {
   Badge,
   reservationStatusVariant,
@@ -193,7 +193,7 @@ export default function ReservationListPage() {
                     {r.guestName}
                   </td>
                   <td className="border-b border-[#f2eee5] px-2.5 py-[13px] text-xs tabular-nums text-[#6f6a5f]">
-                    {maskPhone(r.guestPhone)}
+                    {r.guestPhone}
                   </td>
                   <td className="border-b border-[#f2eee5] px-2.5 py-[13px] text-[13px]">
                     {r.pax}명

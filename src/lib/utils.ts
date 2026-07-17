@@ -8,10 +8,6 @@ export function cn(...inputs: ClassValue[]) {
 
 export const formatWon = (n: number) => "₩" + n.toLocaleString("ko-KR");
 
-// 목록에서는 연락처 마스킹: 010-1234-5678 → 010-****-5678
-export const maskPhone = (p: string) =>
-  p.replace(/(\d{3})-(\d{3,4})-(\d{4})/, "$1-****-$3");
-
 const DOW = ["일", "월", "화", "수", "목", "금", "토"];
 
 const toDate = (d: string) => new Date(d + "T00:00:00");
