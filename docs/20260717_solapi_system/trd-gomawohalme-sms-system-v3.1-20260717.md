@@ -180,7 +180,19 @@ cancelled
 
 ---
 
-## 8. 기존 테이블 변경
+## 8. 기존 테이블 확인 결과와 변경
+
+`supabase/migrations/0001_init.sql` 확인 결과 (2026-07-17):
+
+- `reservation_status`는 CHECK 제약으로 `confirmed`, `changed`, `cancelled` 3개 값만 허용한다.
+  **발송 대상 = `confirmed`, `changed` / 발송 중단 = `cancelled`.**
+- `guest_phone text NOT NULL` — 컬럼 존재. 하이픈 유무 등 형식은 발송 직전 정규화로 흡수한다.
+- 방문 시간 컬럼은 없다. 아래 `visit_start_time` 추가가 실제로 필요하다.
+- 옵션은 `reservation_options(option_name, quantity)`에서 조회한다 (템플릿 변수 치환 시 조인).
+- `profiles.role`은 `owner`(대표), `staff`(직원)이다.
+- `businesses(id)`, `profiles(id)` 테이블이 존재하므로 신규 테이블의 FK 참조가 유효하다.
+
+변경:
 
 ```sql
 ALTER TABLE reservations
@@ -188,6 +200,7 @@ ALTER TABLE reservations
 ```
 
 `visit_start_time`은 템플릿 변수(방문 시간)에 사용한다. `reservations` 변경이므로 동료와 협의 후 반영한다.
+협의 전까지는 문자에 방문일(날짜)만 안내한다.
 
 자동 발송 시 `guest_phone`, `visit_start_date`, `visit_start_time`, `reservation_status`는 Supabase 값을 기준으로 한다.
 
@@ -444,7 +457,7 @@ AT TIME ZONE Asia/Seoul
 
 생성 조건:
 
-- 확정 또는 변경 예약
+- `confirmed` 또는 `changed` 예약
 - 사업장·예약 자동 안내 활성
 - 규칙 활성
 - 유효한 전화번호
@@ -686,8 +699,8 @@ POST /api/webhooks/solapi
 원칙:
 
 - 같은 사업장만 조회
-- 설정·템플릿 변경은 대표
-- 직원은 일정·이력 조회
+- 설정·템플릿 변경은 대표 (`profiles.role = 'owner'`)
+- 직원(`role = 'staff'`)은 일정·이력 조회
 - 외부 발송·재시도·제외는 서버만 (Service Role)
 
 발송 관련 신규 테이블에만 RLS 정책을 추가하며 기존 테이블 정책은 수정하지 않는다.
@@ -802,7 +815,8 @@ supabase/migrations/
 - 0007: Cron
 - 0008: 기본 D-7·D-3·D-1·당일 규칙
 
-Migration 번호는 동료의 Migration과 충돌하지 않도록 머지 전 조율한다.
+현재 저장소에 0001~0003이 사용 중임을 확인했으므로 0004부터 시작한다.
+동료가 같은 시기에 Migration을 추가하면 머지 전 번호를 조율한다.
 
 ---
 
