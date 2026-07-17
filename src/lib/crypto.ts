@@ -1,9 +1,8 @@
 // 서버 전용 암호화 유틸 (TRD 핸드오프 §5)
 // - 설정값(엑셀 파일 비밀번호): AES-256-GCM 암호문 "iv:tag:cipher" (각 base64)
-// - 수집기 토큰: sha256 hex 해시만 저장 (복원 불가)
 // ⚠️ 실패 시 에러 메시지·로그에 원문 흔적을 남기지 않는다.
 
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypto";
+import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
 
 function getKey(): Buffer {
   const raw = process.env.SETTINGS_ENCRYPTION_KEY;
@@ -39,13 +38,4 @@ export function decryptSetting(stored: string): string | null {
   } catch {
     return null;
   }
-}
-
-export function hashToken(token: string): string {
-  return createHash("sha256").update(token).digest("hex");
-}
-
-// 수집기 토큰 발급: 32바이트 랜덤 → base64url (원문은 발급 응답 1회만 노출)
-export function generateCollectorToken(): string {
-  return randomBytes(32).toString("base64url");
 }

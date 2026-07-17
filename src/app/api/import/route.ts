@@ -14,12 +14,11 @@
 //   · preview: 서버가 계획을 만들어 반환 → 화면은 기존 미리보기·반영 흐름 그대로
 //   · auto_apply: 기존 apply_import_plan RPC를 그대로 호출(운영상태 무변경 규칙 자동 준수)
 //     후 배치 source만 'local_collector'로 기록
-//   · 인증: 관리자 세션 또는 수집기 전용 토큰(Bearer, sha256 해시 대조, auto_apply 전용)
+//   · 인증: 관리자 세션 (수집기 토큰 인증은 수집기 미사용 확정으로 제거됨)
 
-import { timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 import * as officeCrypto from "officecrypto-tool";
-import { decryptSetting, hashToken } from "@/lib/crypto";
+import { decryptSetting } from "@/lib/crypto";
 import {
   buildImportPlan,
   parseExcelFile,
@@ -104,56 +103,15 @@ async function handlePlanApply(req: Request) {
 
 interface UploadIdentity {
   businessId: string;
-  userId: string | null; // 수집기 토큰이면 사업장 owner로 귀속(없으면 null)
-  viaToken: boolean;
-}
-
-// Bearer 토큰(수집기) 또는 관리자 세션으로 요청자를 확인
-async function resolveUploadIdentity(req: Request): Promise<UploadIdentity | null> {
-  const auth = req.headers.get("authorization") ?? "";
-  const service = createServiceClient();
-
-  if (auth.startsWith("Bearer ")) {
-    const token = auth.slice("Bearer ".length).trim();
-    if (!token) return null;
-    const { data: row } = await service
-      .from("app_settings")
-      .select("value")
-      .eq("key", "collector_token_hash")
-      .maybeSingle();
-    if (!row?.value) return null;
-    const given = Buffer.from(hashToken(token), "hex");
-    const stored = Buffer.from(String(row.value), "hex");
-    if (given.length !== stored.length || !timingSafeEqual(given, stored)) return null;
-
-    // v1 단일 사업장 — 토큰은 사업장 전체 업로드 권한 하나만 가진다
-    const { data: biz } = await service.from("businesses").select("id").limit(1).single();
-    if (!biz) return null;
-    const { data: owner } = await service
-      .from("profiles")
-      .select("id")
-      .eq("business_id", biz.id)
-      .eq("role", "owner")
-      .eq("status", "active")
-      .order("created_at")
-      .limit(1)
-      .maybeSingle();
-    return { businessId: biz.id, userId: owner?.id ?? null, viaToken: true };
-  }
-
-  const ctx = await requireUser("owner");
-  if (!ctx) return null;
-  return { businessId: ctx.businessId, userId: ctx.userId, viaToken: false };
+  userId: string | null;
 }
 
 async function handleFileUpload(req: Request) {
-  const identity = await resolveUploadIdentity(req);
-  if (!identity) {
-    return NextResponse.json(
-      { error: "인증에 실패했습니다. 관리자 로그인 또는 유효한 수집기 토큰이 필요합니다." },
-      { status: 403 }
-    );
+  const ctx = await requireUser("owner");
+  if (!ctx) {
+    return NextResponse.json({ error: "이 작업은 관리자만 할 수 있습니다." }, { status: 403 });
   }
+  const identity: UploadIdentity = { businessId: ctx.businessId, userId: ctx.userId };
 
   let form: FormData;
   try {
@@ -169,10 +127,6 @@ async function handleFileUpload(req: Request) {
   const mode = String(form.get("mode") ?? "preview");
   if (mode !== "preview" && mode !== "auto_apply") {
     return NextResponse.json({ error: "mode는 preview 또는 auto_apply여야 합니다." }, { status: 400 });
-  }
-  // 수집기 토큰의 권한은 auto_apply 업로드 단일 (TRD §1)
-  if (identity.viaToken && mode !== "auto_apply") {
-    return NextResponse.json({ error: "수집기 토큰은 auto_apply 모드만 사용할 수 있습니다." }, { status: 403 });
   }
 
   // 크기·확장자·MIME — 기존 웹 업로드와 동일 기준 (lib/excel.ts)

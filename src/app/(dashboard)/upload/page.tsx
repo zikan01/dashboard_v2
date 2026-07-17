@@ -29,7 +29,6 @@ async function isCfbFile(f: File): Promise<boolean> {
 
 interface SettingsStatus {
   passwordSet: boolean;
-  tokenIssuedAt: string | null;
 }
 
 export default function UploadPage() {
@@ -50,8 +49,6 @@ export default function UploadPage() {
   const [pwInput, setPwInput] = useState("");
   const [pwBusy, setPwBusy] = useState(false);
   const [pwMsg, setPwMsg] = useState("");
-  const [tokenBusy, setTokenBusy] = useState(false);
-  const [issuedToken, setIssuedToken] = useState(""); // 원문은 발급 직후 1회만 표시
 
   useEffect(() => {
     let cancelled = false;
@@ -94,46 +91,10 @@ export default function UploadPage() {
         return;
       }
       setPwInput(""); // 저장 후 빈 값 표시 (평문 잔류 금지)
-      setSettings((prev) => ({
-        passwordSet: true,
-        tokenIssuedAt: prev?.tokenIssuedAt ?? null,
-      }));
+      setSettings({ passwordSet: true });
       setPwMsg("비밀번호가 등록되었습니다. 암호화된 엑셀도 그대로 업로드할 수 있어요.");
     } finally {
       setPwBusy(false);
-    }
-  };
-
-  const issueToken = async () => {
-    if (tokenBusy) return;
-    if (
-      settings?.tokenIssuedAt &&
-      !window.confirm(
-        "토큰을 다시 발급하면 기존 토큰은 즉시 사용할 수 없게 됩니다. 계속할까요?"
-      )
-    ) {
-      return;
-    }
-    setTokenBusy(true);
-    setPwMsg("");
-    try {
-      const res = await fetch("/api/settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ issueToken: true }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setPwMsg(data.error ?? "토큰 발급에 실패했습니다.");
-        return;
-      }
-      setIssuedToken(data.token);
-      setSettings((prev) => ({
-        passwordSet: prev?.passwordSet ?? false,
-        tokenIssuedAt: data.tokenIssuedAt,
-      }));
-    } finally {
-      setTokenBusy(false);
     }
   };
 
@@ -289,9 +250,9 @@ export default function UploadPage() {
             )}
           </CardTitle>
           <CardCaption>
-            네이버에서 내려받은 엑셀의 열기 비밀번호를 한 번만 등록하면, 웹 업로드와
-            수집기 양쪽에서 자동으로 풀어서 처리합니다. 비밀번호는 암호화되어 저장되며
-            화면·응답에 다시 표시되지 않습니다.
+            네이버에서 내려받은 엑셀의 열기 비밀번호를 한 번만 등록하면, 업로드할 때
+            자동으로 풀어서 처리합니다. 비밀번호는 암호화되어 저장되며 화면·응답에
+            다시 표시되지 않습니다.
           </CardCaption>
           {settingsError && (
             <div className="mb-3 rounded-[10px] border border-[#eed3d0] bg-[#f9ecea] px-3.5 py-[11px] text-[12.5px] text-[#a2453c]">
@@ -310,31 +271,6 @@ export default function UploadPage() {
             <Button onClick={savePassword} disabled={pwBusy}>
               {pwBusy ? "저장 중…" : "저장"}
             </Button>
-          </div>
-
-          <div className="mt-5 border-t border-[#f0ece2] pt-4">
-            <div className="text-[13px] font-semibold">수집기 연결 토큰</div>
-            <div className="mb-2.5 mt-1 text-[11.5px] text-muted">
-              대표 PC의 수집기(config.json)에 넣을 전용 토큰입니다. 발급 시 1회만
-              표시되니 바로 복사해 주세요.
-              {settings?.tokenIssuedAt &&
-                ` · 마지막 발급: ${settings.tokenIssuedAt.slice(0, 10)}`}
-            </div>
-            <Button variant="ghost" onClick={issueToken} disabled={tokenBusy}>
-              {tokenBusy
-                ? "발급 중…"
-                : settings?.tokenIssuedAt
-                  ? "토큰 재발급 (기존 토큰 무효화)"
-                  : "수집기 토큰 발급"}
-            </Button>
-            {issuedToken && (
-              <div className="mt-2.5 rounded-[10px] border border-amber-100 bg-[#f9f3e6] px-3.5 py-[11px] text-[12.5px] text-amber-700">
-                <b>지금 복사하세요 — 다시 볼 수 없습니다.</b>
-                <div className="mt-1 break-all font-mono text-[12px] text-ink">
-                  {issuedToken}
-                </div>
-              </div>
-            )}
           </div>
           {pwMsg && (
             <div className="mt-3 text-[12px] text-green-700">{pwMsg}</div>
