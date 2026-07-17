@@ -1,8 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { EXPORT_COLUMNS, type ExportColumnKey } from "@/lib/mock-data";
+import {
+  formatPreparationsForExport,
+  type PreparationGroup,
+} from "@/lib/preparation-match";
 import { todayStr } from "@/lib/utils";
 import { useData } from "@/components/data-provider";
 import {
@@ -17,6 +21,13 @@ import { Chip } from "@/components/ui/chip";
 
 const PERIODS = ["이번 달", "다음 달", "전체 기간"] as const;
 const STATUSES = ["전체 상태", "확정", "변경"] as const;
+
+// 증분(S-A04): "준비물" 필드 — 기본 미선택이라 선택하지 않으면 기존 내보내기와 동일 (회귀 없음)
+const ALL_COLUMNS = [
+  ...EXPORT_COLUMNS,
+  { key: "preparations", label: "준비물" },
+] as const;
+type ColumnKey = (typeof ALL_COLUMNS)[number]["key"];
 
 function cellValue(r: Reservation, key: ExportColumnKey): string | number {
   switch (key) {
@@ -51,11 +62,30 @@ function buildFileName(now: Date) {
 
 export default function ExportPage() {
   const { ready, reservations } = useData();
-  const [checked, setChecked] = useState<Record<ExportColumnKey, boolean>>(
+  const [checked, setChecked] = useState<Record<ColumnKey, boolean>>(
     Object.fromEntries(
-      EXPORT_COLUMNS.map((c, i) => [c.key, i < 8])
-    ) as Record<ExportColumnKey, boolean>
+      ALL_COLUMNS.map((c, i) => [c.key, c.key !== "preparations" && i < 8])
+    ) as Record<ColumnKey, boolean>
   );
+
+  // 준비물 매칭용 목록 — 필드를 선택하지 않으면 결과에 영향 없음
+  const [preparations, setPreparations] = useState<PreparationGroup[]>([]);
+  const [prepsLoaded, setPrepsLoaded] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/preparations")
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!cancelled && res.ok) {
+          setPreparations(data.preparations ?? []);
+          setPrepsLoaded(true);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [period, setPeriod] = useState<(typeof PERIODS)[number]>("이번 달");
   const [status, setStatus] = useState<(typeof STATUSES)[number]>("전체 상태");
   const [doneMessage, setDoneMessage] = useState("");
@@ -82,13 +112,25 @@ export default function ExportPage() {
       setDoneMessage("내보낼 예약이 없습니다. 기간·상태 필터를 확인해 주세요.");
       return;
     }
-    const cols = EXPORT_COLUMNS.filter((c) => checked[c.key]);
+    const cols = ALL_COLUMNS.filter((c) => checked[c.key]);
     if (cols.length === 0) {
       setDoneMessage("내보낼 컬럼을 1개 이상 선택해 주세요.");
       return;
     }
+    if (checked.preparations && !prepsLoaded) {
+      setDoneMessage("준비물 목록을 아직 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
+      return;
+    }
     const rows = targets.map((r) =>
-      Object.fromEntries(cols.map((c) => [c.label, cellValue(r, c.key)]))
+      Object.fromEntries(
+        cols.map((c) => [
+          c.label,
+          c.key === "preparations"
+            ? // 형식: "옵션명: 항목, 항목 / 옵션명: (미등록)" (FRD §4)
+              formatPreparationsForExport(r.options, preparations)
+            : cellValue(r, c.key),
+        ])
+      )
     );
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
@@ -112,7 +154,7 @@ export default function ExportPage() {
       <Card>
         <CardTitle>내보낼 필드 선택 (내보내기 프로필)</CardTitle>
         <div className="my-3 grid grid-cols-4 gap-2 max-[1080px]:grid-cols-2">
-          {EXPORT_COLUMNS.map((c) => (
+          {ALL_COLUMNS.map((c) => (
             <label
               key={c.key}
               className="flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-white px-2.5 py-2 text-[12.5px]"

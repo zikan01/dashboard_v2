@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { notFound, useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
-import { PREPARATION_ITEMS } from "@/lib/mock-data";
 import {
   SETTLEMENT_LABEL,
   SOURCE_LABEL,
@@ -17,6 +16,7 @@ import {
 import { formatShortDate, formatWon } from "@/lib/utils";
 import { useAuth } from "@/components/auth-provider";
 import { useData } from "@/components/data-provider";
+import { PreparationCard } from "@/components/preparation-card";
 import { Badge, reservationStatusVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardCaption, CardTitle } from "@/components/ui/card";
@@ -100,24 +100,8 @@ function DetailView({ r }: { r: Reservation }) {
             </div>
           </Card>
 
-          <Card className="mb-5">
-            <CardTitle>준비물 예시</CardTitle>
-            <CardCaption>* 수량 계산은 제공하지 않으며 예시로만 안내됩니다.</CardCaption>
-            {r.options.length === 0 && (
-              <div className="py-2 text-[12.5px] text-muted">옵션이 없습니다.</div>
-            )}
-            {r.options.map((o) => (
-              <div
-                key={o}
-                className="flex items-center gap-3.5 border-b border-[#f0ece2] px-1 py-3 last:border-b-0"
-              >
-                <div className="min-w-[70px] font-semibold text-green-700">{o}</div>
-                <div className="text-[12.5px] text-muted">
-                  {PREPARATION_ITEMS[o] ?? "—"}
-                </div>
-              </div>
-            ))}
-          </Card>
+          {/* 목업 고정 예시 표를 실데이터 매칭 카드로 대체 (A-001/A-003) — 삽입은 이 1줄 */}
+          <PreparationCard options={r.options} className="mb-5" />
 
           <Card>
             <CardTitle>메모</CardTitle>

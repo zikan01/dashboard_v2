@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { Upload } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { KeyRound, Upload } from "lucide-react";
 import {
   buildImportPlan,
   parseExcelFile,
@@ -13,11 +13,27 @@ import { useData } from "@/components/data-provider";
 import { Badge, previewActionVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardCaption, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 
 type Phase = "idle" | "preview" | "applied";
 
+// MS 복합 파일(CFB) 시그니처 — 비밀번호 걸린 엑셀(OOXML)은 이 컨테이너에 담긴다
+const CFB_SIGNATURE = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1];
+
+async function isCfbFile(f: File): Promise<boolean> {
+  const head = new Uint8Array(await f.slice(0, 8).arrayBuffer());
+  return (
+    head.length === 8 && CFB_SIGNATURE.every((b, i) => head[i] === b)
+  );
+}
+
+interface SettingsStatus {
+  passwordSet: boolean;
+}
+
 export default function UploadPage() {
   const fileRef = useRef<HTMLInputElement>(null);
+  const settingsCardRef = useRef<HTMLDivElement>(null);
   const { ready, reservations, canRevert, applyImport, revertLastImport } =
     useData();
 
@@ -26,6 +42,86 @@ export default function UploadPage() {
   const [parseError, setParseError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // ---- 네이버 파일 비밀번호 설정 카드 (FRD E-A11~14) ----
+  const [settings, setSettings] = useState<SettingsStatus | null>(null);
+  const [settingsError, setSettingsError] = useState("");
+  const [pwInput, setPwInput] = useState("");
+  const [pwBusy, setPwBusy] = useState(false);
+  const [pwMsg, setPwMsg] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/settings")
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!res.ok) {
+          setSettingsError(data.error ?? "설정을 불러오지 못했습니다.");
+          return;
+        }
+        setSettings(data);
+      })
+      .catch(() => {
+        if (!cancelled) setSettingsError("설정을 불러오지 못했습니다.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const savePassword = async () => {
+    const pw = pwInput.trim();
+    if (!pw) {
+      setPwMsg("비밀번호를 입력해주세요");
+      return;
+    }
+    if (pwBusy) return;
+    setPwBusy(true);
+    setPwMsg("");
+    try {
+      const res = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: pw }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setPwMsg(data.error ?? "저장에 실패했습니다. 다시 시도해 주세요.");
+        return;
+      }
+      setPwInput(""); // 저장 후 빈 값 표시 (평문 잔류 금지)
+      setSettings({ passwordSet: true });
+      setPwMsg("비밀번호가 등록되었습니다. 암호화된 엑셀도 그대로 업로드할 수 있어요.");
+    } finally {
+      setPwBusy(false);
+    }
+  };
+
+  // 암호화 파일: 서버에서 복호화·파싱해 계획을 받아온다 (브라우저는 복호화 불가)
+  const serverPreview = async (f: File) => {
+    setBusy(true);
+    try {
+      const form = new FormData();
+      form.append("file", f);
+      form.append("mode", "preview");
+      const res = await fetch("/api/import", { method: "POST", body: form });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setParseError(data.error ?? "파일을 읽지 못했습니다.");
+        if (data.code === "password_not_set") {
+          settingsCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+        return;
+      }
+      setPlan(data.plan);
+      setPhase("preview");
+    } catch {
+      setParseError("서버에 연결할 수 없습니다.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -37,6 +133,11 @@ export default function UploadPage() {
     const invalid = validateExcelFile(f);
     if (invalid) {
       setParseError(invalid);
+      return;
+    }
+    // 암호화(CFB) 파일이면 서버 경로로 — 비암호화 파일은 기존과 완전 동일 동작
+    if (await isCfbFile(f)) {
+      await serverPreview(f);
       return;
     }
     try {
@@ -121,7 +222,9 @@ export default function UploadPage() {
           className="hidden"
           onChange={onFileChange}
         />
-        <Button onClick={() => fileRef.current?.click()}>파일 선택</Button>
+        <Button onClick={() => fileRef.current?.click()} disabled={busy}>
+          {busy && phase === "idle" ? "파일 확인 중…" : "파일 선택"}
+        </Button>
         <Button variant="ghost" className="ml-2" disabled title="2단계에서 연동 예정">
           로컬 수집기로 가져오기 (예정)
         </Button>
@@ -132,6 +235,47 @@ export default function UploadPage() {
             </Button>
           </div>
         )}
+      </div>
+
+      {/* 네이버 파일 비밀번호 · 수집기 토큰 설정 (관리자 전용 화면 — FRD S-A02) */}
+      <div ref={settingsCardRef}>
+        <Card className="mb-[22px]">
+          <CardTitle>
+            <KeyRound size={15} className="text-green-700" />
+            네이버 파일 비밀번호
+            {settings && (
+              <Badge variant={settings.passwordSet ? "green" : "gray"}>
+                {settings.passwordSet ? "등록됨" : "미등록"}
+              </Badge>
+            )}
+          </CardTitle>
+          <CardCaption>
+            네이버에서 내려받은 엑셀의 열기 비밀번호를 한 번만 등록하면, 업로드할 때
+            자동으로 풀어서 처리합니다. 비밀번호는 암호화되어 저장되며 화면·응답에
+            다시 표시되지 않습니다.
+          </CardCaption>
+          {settingsError && (
+            <div className="mb-3 rounded-[10px] border border-[#eed3d0] bg-[#f9ecea] px-3.5 py-[11px] text-[12.5px] text-[#a2453c]">
+              {settingsError}
+            </div>
+          )}
+          <div className="flex max-w-[420px] items-center gap-2">
+            <Input
+              type="password"
+              autoComplete="new-password"
+              placeholder={settings?.passwordSet ? "새 비밀번호로 변경하려면 입력" : "파일 비밀번호 입력"}
+              value={pwInput}
+              maxLength={64}
+              onChange={(e) => setPwInput(e.target.value)}
+            />
+            <Button onClick={savePassword} disabled={pwBusy}>
+              {pwBusy ? "저장 중…" : "저장"}
+            </Button>
+          </div>
+          {pwMsg && (
+            <div className="mt-3 text-[12px] text-green-700">{pwMsg}</div>
+          )}
+        </Card>
       </div>
 
       {plan && phase !== "idle" && (
