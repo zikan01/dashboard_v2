@@ -1,0 +1,10 @@
+# 빌드 산출물·의존성
+node_modules/
+dist/
+collector.exe
+
+# 실행 로그 (개인정보는 없지만 저장소에 불필요)
+logs/
+
+# 실제 토큰·비밀번호가 들어간 로컬 설정 — 커밋 금지
+config.local.json

@@ -1,0 +1,22 @@
+{
+  "apiBaseUrl": "https://dashboardv2-kappa.vercel.app",
+  "collectorToken": "여기에-대시보드에서-발급받은-수집기-토큰을-붙여넣으세요",
+  "bookingUrl": "https://partner.booking.naver.com/bizes/1122869/booking",
+  "browser": {
+    "channel": "chrome",
+    "executablePath": "",
+    "debugPort": 9222,
+    "profileDir": "%LOCALAPPDATA%\\GomawoCollector\\profile"
+  },
+  "download": {
+    "dir": "%USERPROFILE%\\Downloads",
+    "filePattern": "*예약자관리*.xlsx",
+    "timeoutSec": 60,
+    "excelPassword": ""
+  },
+  "selectors": {
+    "detailDownloadBtn": "button:has-text(\"상세 내려받기\")",
+    "loginDetect": "nid.naver.com"
+  },
+  "period": { "basis": "이용일", "range": "한달" }
+}
