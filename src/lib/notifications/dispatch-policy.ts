@@ -29,5 +29,7 @@ export function decideDispatch(
       ? { action: "send" }
       : { action: "blocked_by_allowlist" };
   }
-  return { action: "send" };
+  if (mode === "live") return { action: "send" };
+  // 알 수 없는 모드 값은 안전측(dry_run)으로 — 오설정이 실발송으로 이어지지 않게
+  return { action: "dry_run" };
 }

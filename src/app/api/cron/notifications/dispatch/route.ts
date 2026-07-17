@@ -4,6 +4,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { isCronAuthorized } from "@/lib/security/cron-auth";
 import { dispatchDueJobs } from "@/lib/notifications/dispatcher";
 import { createSolapiProvider } from "@/lib/notifications/providers/solapi-provider";
+import { createMockProvider } from "@/lib/notifications/providers/mock-provider";
 import type { SendMode } from "@/lib/notifications/types";
 
 export async function POST(req: Request) {
@@ -14,9 +15,12 @@ export async function POST(req: Request) {
   const allowlist = (process.env.NOTIFICATION_TEST_PHONE_ALLOWLIST ?? "")
     .split(",").map((s) => s.trim()).filter(Boolean);
 
+  // dry_run은 외부 발송이 없으므로 SOLAPI 키 없이도 동작해야 한다
+  const provider = mode === "dry_run" ? createMockProvider() : createSolapiProvider();
+
   const summary = await dispatchDueJobs({
     service: createServiceClient(),
-    provider: createSolapiProvider(),
+    provider,
     mode,
     allowlist,
     workerId: `vercel-${process.env.VERCEL_DEPLOYMENT_ID ?? "local"}`,

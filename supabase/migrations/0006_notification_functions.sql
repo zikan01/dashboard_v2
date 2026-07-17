@@ -45,7 +45,7 @@ BEGIN
   IF FOUND AND NOT v_pref_enabled THEN RETURN; END IF;
 
   v_phone := regexp_replace(coalesce(r.guest_phone, ''), '[^0-9]', '', 'g');
-  IF v_phone !~ '^01[0-9]{8,9}$' THEN RETURN; END IF;
+  IF v_phone !~ '^01[016789][0-9]{7,8}$' THEN RETURN; END IF;
 
   -- 3) 활성 규칙별 미래 작업 생성 (지난 시점은 생성하지 않음, PRD §9.1)
   FOR rule IN
@@ -168,10 +168,24 @@ AS $$
 DECLARE
   v_count integer;
 BEGIN
+  -- 시도 소진(3회 이상) 작업은 실패로 확정
+  UPDATE notification_jobs j
+  SET status = 'failed',
+      cancellation_reason = coalesce(cancellation_reason, '잠금 복구: 재시도 상한 초과'),
+      locked_at = NULL, locked_by = NULL, updated_at = now()
+  WHERE j.status = 'processing'
+    AND j.locked_at < now() - interval '15 minutes'
+    AND j.attempt_count >= 3
+    AND NOT EXISTS (
+      SELECT 1 FROM notification_deliveries d
+      WHERE d.job_id = j.id AND d.provider_message_id IS NOT NULL
+    );
+
   UPDATE notification_jobs j
   SET status = 'scheduled', locked_at = NULL, locked_by = NULL, updated_at = now()
   WHERE j.status = 'processing'
     AND j.locked_at < now() - interval '15 minutes'
+    AND j.attempt_count < 3
     AND NOT EXISTS (
       SELECT 1 FROM notification_deliveries d
       WHERE d.job_id = j.id AND d.provider_message_id IS NOT NULL

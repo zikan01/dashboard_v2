@@ -51,4 +51,8 @@ describe("decideDispatch (발송 모드 게이트, TRD §22)", () => {
   it("live면 발송", () => {
     expect(decideDispatch("live", "01012345678", [])).toEqual({ action: "send" });
   });
+  it("알 수 없는 모드 값은 dry_run으로 처리한다 (fail-safe)", () => {
+    expect(decideDispatch("Live" as never, "01012345678", [])).toEqual({ action: "dry_run" });
+    expect(decideDispatch("" as never, "01012345678", [])).toEqual({ action: "dry_run" });
+  });
 });

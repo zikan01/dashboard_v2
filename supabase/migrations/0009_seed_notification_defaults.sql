@@ -22,6 +22,10 @@ WITH tpl AS (
      E'#{고객명}님, 오늘 방문일입니다. 조심히 오세요!\n주소: #{사업장주소}\n문의: #{사업장전화}',
      '["고객명","사업장주소","사업장전화"]'::jsonb)
   ) AS t(name, purpose, body, vars)
+  WHERE NOT EXISTS (
+    SELECT 1 FROM message_templates m
+    WHERE m.business_id = b.id AND m.channel = 'sms' AND m.purpose = t.purpose
+  )
   RETURNING id, business_id, purpose
 )
 INSERT INTO notification_rules (business_id, stage, offset_days, send_time, sms_template_id, enabled)

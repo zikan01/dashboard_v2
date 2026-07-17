@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { createServiceClient } from "@/lib/supabase/server";
+import { safeEqual } from "@/lib/security/cron-auth";
 
 const reportItem = z.object({
   messageId: z.string(),
@@ -15,7 +16,7 @@ const reportSchema = z.array(reportItem).min(1).max(1000);
 
 export async function POST(req: Request) {
   const secret = process.env.SOLAPI_WEBHOOK_SECRET;
-  if (!secret || req.headers.get("x-solapi-secret") !== secret) {
+  if (!secret || !safeEqual(req.headers.get("x-solapi-secret") ?? "", secret)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
   const eventName = req.headers.get("x-solapi-event-name") ?? "UNKNOWN";
