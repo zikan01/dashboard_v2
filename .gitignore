@@ -24,3 +24,6 @@ npm-debug.log*
 next-env.d.ts
 
 .vercel
+
+# 실데이터 샘플 (개인정보 포함 - 커밋 금지)
+/samples

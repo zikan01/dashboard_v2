@@ -7,6 +7,7 @@ import {
   ClipboardList,
   CalendarDays,
   Upload,
+  PackageOpen,
   MessageSquareText,
   FileDown,
   History,
@@ -25,6 +26,7 @@ const MAIN_NAV = [
 // 관리자 전용 메뉴 — 직원(staff) 로그인 시 숨김 (업로드 이력은 직원도 열람 가능, FRD §1)
 const ADMIN_NAV = [
   { href: "/upload", label: "엑셀 업로드", icon: Upload },
+  { href: "/options", label: "옵션 업로드", icon: PackageOpen, isNew: true },
   { href: "/inquiries", label: "텍스트 문의", icon: MessageSquareText, isNew: true },
   { href: "/export", label: "데이터 내보내기", icon: FileDown, isNew: true },
   { href: "/history", label: "업로드 이력", icon: History },

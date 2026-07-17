@@ -13,6 +13,7 @@ const TITLES: [string, string][] = [
   ["/reservations", "예약 목록"],
   ["/calendar", "예약 캘린더"],
   ["/upload", "엑셀 업로드"],
+  ["/options", "옵션 업로드"],
   ["/inquiries", "텍스트 문의"],
   ["/export", "데이터 내보내기"],
   ["/history", "업로드·수집 이력"],
