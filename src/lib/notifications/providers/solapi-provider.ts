@@ -1,6 +1,11 @@
 // SOLAPI Provider (TRD §16) — solapi SDK 5.5.1
+// 응답 구조는 2026-07-17 실발송으로 확인: messageList는 배열이 아니라
+// messageId를 키로 하는 객체이며, 선불 충전액은 balance가 아닌 point에 담긴다.
 import { SolapiMessageService } from "solapi";
 import type { MessageProvider, ProviderSendResult } from "./message-provider";
+
+const firstMessage = (res: any): any =>
+  Object.values(res?.messageList ?? {})[0] ?? undefined;
 
 export function createSolapiProvider(): MessageProvider {
   const svc = new SolapiMessageService(
@@ -12,12 +17,21 @@ export function createSolapiProvider(): MessageProvider {
       try {
         // SDK가 본문 길이에 따라 SMS/LMS를 자동 판별한다
         const res: any = await svc.send({ to, from, text });
-        const first = res?.messageList?.[0] ?? {};
+        const groupId = res?.groupInfo?.groupId ?? res?.groupId;
+        let first = firstMessage(res);
+        if (!first?.messageId && groupId) {
+          // 발송 응답에 개별 메시지가 없으면 그룹 조회로 보완 (읽기 호출, 무료)
+          try {
+            first = firstMessage(await svc.getMessages({ groupId }));
+          } catch {
+            // 조회 실패는 발송 성공 여부에 영향 없음 — 상태 대조 Cron이 재시도
+          }
+        }
         return {
           ok: true,
-          providerGroupId: res?.groupInfo?.groupId ?? res?.groupId,
-          providerMessageId: first.messageId,
-          messageType: first.type,
+          providerGroupId: groupId,
+          providerMessageId: first?.messageId,
+          messageType: first?.type,
         };
       } catch (e: any) {
         return {
@@ -30,7 +44,7 @@ export function createSolapiProvider(): MessageProvider {
     async getMessageStatus(providerMessageId) {
       try {
         const res: any = await svc.getMessages({ messageId: providerMessageId });
-        const msg = res?.messageList?.[0] ?? res?.[0];
+        const msg = firstMessage(res);
         const code: string | undefined = msg?.statusCode;
         if (!code) return { status: "unknown" };
         if (code === "4000") return { status: "delivered" };
@@ -41,8 +55,9 @@ export function createSolapiProvider(): MessageProvider {
       }
     },
     async getBalance() {
+      // 선불 포인트(point)와 캐시(balance)를 합산한 잔액
       const res: any = await svc.getBalance();
-      return Number(res?.balance ?? 0);
+      return Number(res?.balance ?? 0) + Number(res?.point ?? 0);
     },
   };
 }
