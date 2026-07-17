@@ -406,6 +406,14 @@ function diffDetail(t: Reservation, p: ParsedRow): string[] {
   const diffs: string[] = [];
   if (t.visitStartDate !== p.visitStartDate)
     diffs.push(`방문일 ${t.visitStartDate.slice(5)} → ${p.visitStartDate.slice(5)}`);
+  // 연락처: 정상 번호 간 변경만 diff로 취급.
+  // 마스킹 값(네이버가 방문일 경과 후 삭제한 번호)은 DB apply_import_plan 가드가
+  // 기존 정상 번호를 유지하므로 변경으로 치지 않는다 (마이그레이션 0004).
+  if (
+    t.guestPhone !== p.guestPhone &&
+    !(p.guestPhone.includes("*") && !t.guestPhone.includes("*"))
+  )
+    diffs.push(`연락처 ${t.guestPhone} → ${p.guestPhone}`);
   if (t.pax !== p.pax) diffs.push(`인원 ${t.pax} → ${p.pax}`);
   if (t.paidAmount !== p.paidAmount)
     diffs.push(`금액 ${t.paidAmount.toLocaleString()} → ${p.paidAmount.toLocaleString()}`);
