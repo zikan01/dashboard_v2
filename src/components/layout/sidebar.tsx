@@ -13,6 +13,12 @@ import {
   History,
   Users,
   LogOut,
+  Send,
+  Settings2,
+  MessageCircle,
+  CalendarClock,
+  ListChecks,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/auth-provider";
@@ -34,6 +40,18 @@ const ADMIN_NAV = [
 ];
 
 const STAFF_EXTRA_NAV = [{ href: "/history", label: "업로드 이력", icon: History }];
+
+// 문자 발송 (FRD v3.1 §1) — 일정·이력·실패는 직원도 조회 가능
+const NOTIF_NAV = [
+  { href: "/notifications/schedule", label: "발송 일정", icon: CalendarClock, isNew: true },
+  { href: "/notifications/history", label: "발송 이력", icon: ListChecks, isNew: true },
+  { href: "/notifications/failures", label: "실패 관리", icon: AlertTriangle, isNew: true },
+];
+const NOTIF_ADMIN_NAV = [
+  { href: "/settings/notifications", label: "자동 안내 설정", icon: Send, isNew: true },
+  { href: "/settings/templates", label: "메시지 템플릿", icon: MessageCircle, isNew: true },
+  { href: "/settings/providers/solapi", label: "SOLAPI 설정", icon: Settings2, isNew: true },
+];
 
 function NavLink({
   href,
@@ -97,12 +115,21 @@ export function Sidebar() {
         {MAIN_NAV.map((item) => (
           <NavLink key={item.href} {...item} active={isActive(item.href)} />
         ))}
+        <div className="px-3.5 pb-1 pt-3 text-[10.5px] tracking-wide text-faint">
+          문자 발송
+        </div>
+        {NOTIF_NAV.map((item) => (
+          <NavLink key={item.href} {...item} active={isActive(item.href)} />
+        ))}
         {isOwner ? (
           <>
             <div className="px-3.5 pb-1 pt-3 text-[10.5px] tracking-wide text-faint">
               관리자
             </div>
             {ADMIN_NAV.map((item) => (
+              <NavLink key={item.href} {...item} active={isActive(item.href)} />
+            ))}
+            {NOTIF_ADMIN_NAV.map((item) => (
               <NavLink key={item.href} {...item} active={isActive(item.href)} />
             ))}
           </>

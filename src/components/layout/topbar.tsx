@@ -18,6 +18,12 @@ const TITLES: [string, string][] = [
   ["/export", "데이터 내보내기"],
   ["/history", "업로드·수집 이력"],
   ["/staff", "직원 관리"],
+  ["/notifications/schedule", "발송 일정"],
+  ["/notifications/history", "발송 이력"],
+  ["/notifications/failures", "실패 관리"],
+  ["/settings/notifications", "자동 안내 설정"],
+  ["/settings/templates", "메시지 템플릿"],
+  ["/settings/providers/solapi", "SOLAPI 설정"],
 ];
 
 export function Topbar() {
