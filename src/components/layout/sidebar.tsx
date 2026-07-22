@@ -19,6 +19,7 @@ import {
   CalendarClock,
   ListChecks,
   AlertTriangle,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/auth-provider";
@@ -87,7 +88,13 @@ function NavLink({
   );
 }
 
-export function Sidebar() {
+export function Sidebar({
+  mobileOpen = false,
+  onClose,
+}: {
+  mobileOpen?: boolean;
+  onClose?: () => void;
+} = {}) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
@@ -101,7 +108,12 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="sticky top-0 flex h-screen w-[230px] shrink-0 flex-col border-r border-border bg-white">
+    <aside
+      className={cn(
+        "fixed inset-y-0 left-0 z-50 flex h-screen w-[230px] shrink-0 flex-col border-r border-border bg-white transition-transform duration-200 ease-out lg:sticky lg:top-0 lg:z-auto lg:translate-x-0 lg:shadow-none",
+        mobileOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"
+      )}
+    >
       <div className="flex items-center gap-2.5 px-[18px] py-5">
         <div className="flex h-[34px] w-[34px] items-center justify-center rounded-[9px] bg-green-900 text-[15px] font-bold text-white">
           고
@@ -110,8 +122,16 @@ export function Sidebar() {
           <b className="text-[15px]">고마워할매</b>
           <span className="block text-[11px] text-muted">예약 운영</span>
         </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="메뉴 닫기"
+          className="ml-auto flex h-8 w-8 items-center justify-center rounded-btn text-muted hover:bg-[#f5f2ea] hover:text-ink lg:hidden"
+        >
+          <X size={18} />
+        </button>
       </div>
-      <nav className="flex flex-1 flex-col gap-0.5 px-3 pt-1">
+      <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 pt-1">
         {MAIN_NAV.map((item) => (
           <NavLink key={item.href} {...item} active={isActive(item.href)} />
         ))}

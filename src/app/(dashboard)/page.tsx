@@ -131,9 +131,9 @@ export default function HomePage() {
   return (
     <div>
       {/* 헤더 배너 */}
-      <div className="mb-3 flex items-center justify-between rounded-card bg-green-900 px-6 py-5 text-white">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-y-2 rounded-card bg-green-900 px-5 py-4 text-white sm:px-6 sm:py-5">
         <div>
-          <h2 className="text-[19px] font-bold tracking-tight">
+          <h2 className="text-[17px] font-bold tracking-tight sm:text-[19px]">
             고마워할매 — 경영 정보 대시보드
           </h2>
           <div className="mt-1 text-[12.5px] text-white/70">

@@ -41,9 +41,9 @@ export function Topbar() {
   if (pathname === "/") return <div className="pt-4" />;
 
   return (
-    <div className="flex items-start justify-between px-8 pb-2.5 pt-6">
+    <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 px-4 pb-2.5 pt-5 sm:px-6 sm:pt-6 lg:px-8">
       <div>
-        <h1 className="text-[22px] font-bold">{title}</h1>
+        <h1 className="text-[19px] font-bold sm:text-[22px]">{title}</h1>
         <div className="mt-[3px] min-h-[18px] text-[12.5px] text-muted">
           {today ? formatKoreanDate(today) : ""}
         </div>

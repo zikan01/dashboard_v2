@@ -46,7 +46,7 @@ export default function CalendarPage() {
 
   return (
     <div className="rounded-card border border-border bg-white p-5 shadow-card">
-      <div className="mb-3.5 flex items-center justify-between">
+      <div className="mb-3.5 flex flex-wrap items-center justify-between gap-y-2.5">
         <div className="flex items-center gap-1.5">
           <button
             type="button"
@@ -68,7 +68,7 @@ export default function CalendarPage() {
             <ChevronRight size={15} />
           </button>
         </div>
-        <div className="flex gap-4 text-[11.5px] text-muted">
+        <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-[11.5px] text-muted">
           {(Object.keys(STATUS_LABEL) as ReservationStatus[]).map((s) => (
             <label key={s} className="flex cursor-pointer items-center gap-1.5">
               <input
