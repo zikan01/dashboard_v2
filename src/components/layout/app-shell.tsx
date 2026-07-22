@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
+import { ReservationSheetProvider } from "@/components/reservation-sheet";
 
 /**
  * 반응형 앱 셸.
@@ -63,7 +64,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <Topbar />
-        <div className="px-4 pb-10 pt-1 sm:px-6 lg:px-8">{children}</div>
+        <div className="px-4 pb-10 pt-1 sm:px-6 lg:px-8">
+          <ReservationSheetProvider>{children}</ReservationSheetProvider>
+        </div>
       </main>
     </div>
   );

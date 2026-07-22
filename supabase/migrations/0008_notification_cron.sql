@@ -8,8 +8,8 @@ CREATE EXTENSION IF NOT EXISTS pg_net;
 -- 메시지 발송: 5분마다
 SELECT cron.schedule('notification-dispatch', '*/5 * * * *', $$
   SELECT net.http_post(
-    url := '{{APP_BASE_URL}}/api/cron/notifications/dispatch',
-    headers := '{"Authorization": "Bearer {{CRON_SECRET}}", "Content-Type": "application/json"}'::jsonb,
+    url := 'https://dashboardv2-kappa.vercel.app/api/cron/notifications/dispatch',
+    headers := '{"Authorization": "Bearer 3afa2f6bfcae6d86191974fa84228c00dc52de43ab7a80d9", "Content-Type": "application/json"}'::jsonb,
     body := '{}'::jsonb
   );
 $$);
@@ -17,8 +17,8 @@ $$);
 -- 잠금 복구: 15분마다
 SELECT cron.schedule('notification-recover-locks', '*/15 * * * *', $$
   SELECT net.http_post(
-    url := '{{APP_BASE_URL}}/api/cron/notifications/recover-locks',
-    headers := '{"Authorization": "Bearer {{CRON_SECRET}}", "Content-Type": "application/json"}'::jsonb,
+    url := 'https://dashboardv2-kappa.vercel.app/api/cron/notifications/recover-locks',
+    headers := '{"Authorization": "Bearer 3afa2f6bfcae6d86191974fa84228c00dc52de43ab7a80d9", "Content-Type": "application/json"}'::jsonb,
     body := '{}'::jsonb
   );
 $$);
@@ -26,8 +26,8 @@ $$);
 -- Provider 상태 대조: 30분마다
 SELECT cron.schedule('notification-reconcile', '*/30 * * * *', $$
   SELECT net.http_post(
-    url := '{{APP_BASE_URL}}/api/cron/notifications/reconcile',
-    headers := '{"Authorization": "Bearer {{CRON_SECRET}}", "Content-Type": "application/json"}'::jsonb,
+    url := 'https://dashboardv2-kappa.vercel.app/api/cron/notifications/reconcile',
+    headers := '{"Authorization": "Bearer 3afa2f6bfcae6d86191974fa84228c00dc52de43ab7a80d9", "Content-Type": "application/json"}'::jsonb,
     body := '{}'::jsonb
   );
 $$);

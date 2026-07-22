@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { STATUS_LABEL, type ReservationStatus } from "@/lib/types";
 import { cn, todayStr } from "@/lib/utils";
 import { useData } from "@/components/data-provider";
+import { useReservationSheet } from "@/components/reservation-sheet";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -17,6 +18,7 @@ const EV_CLASS: Record<ReservationStatus, string> = {
 
 export default function CalendarPage() {
   const { ready, reservations } = useData();
+  const { open: openReservation } = useReservationSheet();
   const [month, setMonth] = useState(() => todayStr().slice(0, 7)); // "YYYY-MM"
   const [visible, setVisible] = useState<Record<ReservationStatus, boolean>>({
     confirmed: true,
@@ -115,15 +117,18 @@ export default function CalendarPage() {
             >
               <div className="mb-1.5 text-xs text-[#8b8578]">{d}</div>
               {events.map((r) => (
-                <div
+                <button
                   key={r.id}
+                  type="button"
+                  onClick={() => openReservation(r)}
+                  title={`${r.guestName} 예약 상세`}
                   className={cn(
-                    "mb-1 overflow-hidden text-ellipsis whitespace-nowrap rounded-md px-1.5 py-[3px] text-[11px]",
+                    "mb-1 block w-full overflow-hidden text-ellipsis whitespace-nowrap rounded-md px-1.5 py-[3px] text-left text-[11px] transition-shadow hover:shadow-[inset_0_0_0_1px_rgba(0,0,0,0.14)]",
                     EV_CLASS[r.reservationStatus]
                   )}
                 >
                   {r.guestName} {r.pax}명
-                </div>
+                </button>
               ))}
             </div>
           );

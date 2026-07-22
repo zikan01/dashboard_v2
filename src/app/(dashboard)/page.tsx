@@ -26,6 +26,7 @@ import {
 } from "@/lib/utils";
 import { useAuth } from "@/components/auth-provider";
 import { useData } from "@/components/data-provider";
+import { useReservationSheet } from "@/components/reservation-sheet";
 import {
   Badge,
   reservationStatusVariant,
@@ -69,6 +70,7 @@ const tdClass = "border-b border-[#f0ece2] px-3 py-2.5 text-[12.5px]";
 export default function HomePage() {
   const { ready, reservations } = useData();
   const { user } = useAuth();
+  const { open: openReservation } = useReservationSheet();
   if (!ready) return null;
 
   const today = todayStr();
@@ -216,10 +218,13 @@ export default function HomePage() {
                 >
                   <div className="mb-1 text-[11px] text-[#8b8578]">{d}</div>
                   {(byDay.get(d) ?? []).map((r) => (
-                    <div
+                    <button
                       key={r.id}
+                      type="button"
+                      onClick={() => openReservation(r)}
+                      title={`${r.guestName} 예약 상세`}
                       className={cn(
-                        "mb-0.5 overflow-hidden text-ellipsis whitespace-nowrap rounded px-1 py-[2px] text-[10.5px]",
+                        "mb-0.5 block w-full overflow-hidden text-ellipsis whitespace-nowrap rounded px-1 py-[2px] text-left text-[10.5px] transition-shadow hover:shadow-[inset_0_0_0_1px_rgba(0,0,0,0.12)]",
                         r.reservationStatus === "confirmed" &&
                           "bg-green-100 text-green-900",
                         r.reservationStatus === "changed" &&
@@ -229,7 +234,7 @@ export default function HomePage() {
                       )}
                     >
                       {r.guestName} {r.pax}인
-                    </div>
+                    </button>
                   ))}
                 </div>
               );
@@ -270,10 +275,9 @@ export default function HomePage() {
                   key={r.id}
                   className="flex gap-3 border-b border-dashed border-[#efeae0] py-3 first:pt-1 last:border-b-0"
                 >
-                  <div className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-[10px] bg-green-800 text-white">
-                    <span className="text-[9px] leading-none opacity-80">D-</span>
-                    <span className="text-[15px] font-bold leading-tight">
-                      {d}
+                  <div className="flex h-11 min-w-[46px] shrink-0 items-center justify-center rounded-[10px] bg-green-800 px-2 text-white">
+                    <span className="whitespace-nowrap text-[15px] font-bold leading-none tabular-nums">
+                      D-{d}
                     </span>
                   </div>
                   <div className="min-w-0">
