@@ -18,6 +18,10 @@ import {
 } from "@/lib/types";
 import { cn, formatKoreanDate, formatWon } from "@/lib/utils";
 import {
+  matchReservationOptions,
+  type PreparationGroup,
+} from "@/lib/preparation-match";
+import {
   Badge,
   reservationStatusVariant,
   settlementVariant,
@@ -59,9 +63,35 @@ export function ReservationSheetProvider({
 }) {
   const [current, setCurrent] = useState<Reservation | null>(null);
   const [visible, setVisible] = useState(false); // 진입/퇴장 애니메이션용
+  const [groups, setGroups] = useState<PreparationGroup[]>([]);
+  const [prepState, setPrepState] = useState<"loading" | "success" | "error">(
+    "loading"
+  );
   const pathname = usePathname();
 
   const open = useCallback((r: Reservation) => setCurrent(r), []);
+
+  // 준비물 매칭 데이터(옵션 업로드에서 등록)는 세션 시작 시 한 번 로드해 모든 예약에 재사용
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/preparations")
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!res.ok) {
+          setPrepState("error");
+          return;
+        }
+        setGroups(data.preparations ?? []);
+        setPrepState("success");
+      })
+      .catch(() => {
+        if (!cancelled) setPrepState("error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const close = useCallback(() => {
     setVisible(false);
@@ -176,6 +206,49 @@ export function ReservationSheetProvider({
                   {formatWon(r.paidAmount)}
                 </span>
               </Field>
+
+              {/* 준비물 — 옵션 업로드에 등록한 준비물이 옵션명 부분 일치로 자동 표시 */}
+              <div className="mt-4">
+                <div className="mb-2 text-[12.5px] font-semibold text-muted">
+                  준비물
+                </div>
+                {r.options.length === 0 ? (
+                  <div className="text-[12.5px] text-muted">옵션이 없습니다.</div>
+                ) : prepState === "loading" ? (
+                  <div className="text-[12.5px] text-muted">불러오는 중…</div>
+                ) : prepState === "error" ? (
+                  <div className="text-[12.5px] text-muted">
+                    준비물을 불러오지 못했습니다.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {matchReservationOptions(r.options, groups).map((m) => (
+                      <div
+                        key={m.optionName}
+                        className="flex flex-wrap items-center gap-x-2 gap-y-1"
+                      >
+                        <span className="min-w-[62px] text-[12.5px] font-semibold text-green-700">
+                          {m.optionName}
+                        </span>
+                        {m.matched ? (
+                          <div className="flex flex-wrap gap-1">
+                            {m.items.map((item) => (
+                              <span
+                                key={item}
+                                className="rounded-full bg-sand-100 px-2 py-[2px] text-[11px] text-[#55514a]"
+                              >
+                                {item}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-[12px] text-muted">(미등록)</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* 하단 액션 */}
